@@ -18,11 +18,11 @@ This file is a set of instructions for anyone who stores, sends, calculates or s
 
 Rules marked *(our rule)* are this repo's choice where no standard gives one answer.
 
-**Related files.** Stack-specific rules live in [typescript.md §9](typescript.md#9-dates-and-times-important-for-bookings), [trpc.md](trpc.md), [react.md §7.4](react.md#74-browser-only-components), [nestjs.md §11](nestjs.md#11-database--persistence), [shadcn.md](shadcn.md) and [python-pydantic.md §2.2](python-pydantic.md#22-everyday-rules). Those files say "store a UTC instant plus the IANA zone". That is still right for past events. For **future events tied to a place**, such as bookings, this file goes one step further: the local time plus the zone is the source of truth, and the UTC instant is a derived value ([§3](#3-what-to-store)).
+**Related files.** Stack-specific rules live in [typescript.md §9](typescript.md#9-dates-and-times), [trpc.md](trpc.md), [react.md §7.4](react.md#74-browser-only-components), [nestjs.md §11](nestjs.md#11-database--persistence), [shadcn.md](shadcn.md) and [python-pydantic.md §2.2](python-pydantic.md#22-everyday-rules). Those files say "store a UTC instant plus the IANA zone". That is still right for past events. For **future events tied to a place**, such as bookings, this file goes one step further: the local time plus the zone is the source of truth, and the UTC instant is a derived value ([§3](#3-what-to-store)).
 
 ---
 
-## Table of contents
+## Contents
 
 0. [Why this matters in 2026](#0-why-this-matters-in-2026)
 1. [Know which kind of time you have](#1-know-which-kind-of-time-you-have)
@@ -40,7 +40,7 @@ Rules marked *(our rule)* are this repo's choice where no standard gives one ans
 13. [Logging](#13-logging)
 14. [Testing](#14-testing)
 15. [Quick reference](#15-quick-reference)
-16. [Definition of done](#16-definition-of-done)
+16. [PR checklist](#16-pr-checklist)
 17. [Appendix: types by language](#17-appendix-types-by-language)
 18. [Sources](#18-sources)
 
@@ -414,7 +414,7 @@ tzdata changes several times a year, and a change can take effect days after it'
 
 ---
 
-## 16. Definition of done
+## 16. PR checklist
 
 Before you call a change that touches dates or times finished (applies equally to AI agents):
 

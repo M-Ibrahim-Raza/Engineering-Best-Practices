@@ -6,7 +6,9 @@ Shared engineering rules for our projects. Each file covers one technology and i
 
 | File | Covers |
 |---|---|
+| [design-patterns.md](design-patterns.md) | Language- and framework-agnostic design patterns and architecture: SOLID, DDD, error handling, module boundaries, idempotency, sagas, observability, testability. |
 | [typescript.md](typescript.md) | TypeScript toolchain, `tsconfig`, type design, runtime validation, dates. Owns the Node.js and TypeScript versions. |
+| [zod.md](zod.md) | Zod schemas: where to validate, objects and primitives, refinements and transforms, codecs, parsing and errors, JSON Schema/OpenAPI, forms, performance. |
 | [react.md](react.md) | React 19 components, state, effects, Server Components, forms and Actions. |
 | [nextjs.md](nextjs.md) | Next.js App Router: rendering, caching, data fetching, Server Actions, security. |
 | [tailwind.md](tailwind.md) | Tailwind CSS v4: tokens, utilities, variants, dark mode, custom CSS. |
@@ -18,12 +20,18 @@ Shared engineering rules for our projects. Each file covers one technology and i
 | [graphql.md](graphql.md) | GraphQL for any server library: when to use it, schema design, nullability and IDs, pagination, mutations and errors, DataLoader, authorization, trusted documents and abuse limits, GraphQL over HTTP, deprecation, subscriptions, federation, and the TanStack Query + Codegen client. |
 | [python-pydantic.md](python-pydantic.md) | Python and Pydantic: typing, docstrings, models, validators, settings. |
 | [sqlalchemy.md](sqlalchemy.md) | SQLAlchemy 2.1 (async) against PostgreSQL: engine and pooling, declarative models, relationships and loading, sessions, querying and writing data, raw SQL security, FastAPI integration, Alembic migrations, typing, testing. |
-| [postgresql.md](postgresql.md) | PostgreSQL 17 (Supabase): data types, constraints, indexes, queries, locking, zero-downtime migrations, security and RLS, Prisma and SQLAlchemy usage, testing. |
+| [prisma.md](prisma.md) | Prisma 7 against PostgreSQL: schema design, migrations, querying, transactions, raw SQL safety, multi-tenancy, testing. |
+| [drizzle.md](drizzle.md) | Drizzle ORM against PostgreSQL: schema design, relations, migrations, raw SQL safety, transactions, NestJS and Next.js integration, testing. |
+| [postgresql.md](postgresql.md) | PostgreSQL 17 (Supabase): data types, constraints, indexes, queries, locking, zero-downtime migrations, security and RLS, connection setup for Prisma/Drizzle/SQLAlchemy, testing. |
+| [timezones.md](timezones.md) | Time zones for any language or framework: what to store, DST, recurring events, scheduled jobs, displaying times to people. |
 | [environment-configuration.md](environment-configuration.md) | Environment variables, `.env` files and secrets: T3 Env (Next.js), pydantic-settings (Python), startup validation, testing, deployment. |
 | [uv.md](uv.md) | uv: project setup, lockfile, dependency cooldown, scripts, workspaces, CI, Docker, publishing. |
 | [logging.md](logging.md) | Logging with Loguru (Python) and Pino (Node, NestJS, Next.js): JSON on stdout, shared fields, redaction, correlation IDs, and audit logging. |
 | [supertest.md](supertest.md) | HTTP integration tests with Supertest: app factory, requests, assertions, auth and cookies, test data, network mocks (MSW, nock), Vitest setup. |
 | [jest.md](jest.md) | Jest 30: config, TypeScript transformers and types, mocks and spies, fake timers, native ESM, snapshots, DOM tests, integration projects, coverage, CI and linting. |
+| [pytest.md](pytest.md) | pytest for Python: fixtures, parametrization, mocking, async tests, database and HTTP integration tests, coverage, CI. |
+| [testing.md](testing.md) | Unit and integration testing for TypeScript and Python: what to test, writing tests, test data and doubles, determinism, database and HTTP integration tests, the Vitest setup, coverage, flaky tests, CI, and tests written by AI agents. |
+| [git.md](git.md) | Git and GitHub: branching, commits, PRs, stacked PRs, merging, branch protection, signing, secrets, releases, submodules, worktrees. |
 | [AGENTS.md](AGENTS.md) | The index for AI agents: which file to read for a task, rule keywords, precedence and glossary. |
 
 ## Using this repo in a project

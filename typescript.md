@@ -1,7 +1,7 @@
 # TypeScript Best Practices
 
 > **Baseline:** TypeScript 7.0 (`typescript@7.0.2`, the native Go compiler) for `tsc`, plus TypeScript 6.0 for tools that import the compiler API (TypeScript 7.1 has been in beta since 2026-10-20) · Node.js 24 LTS or newer · evergreen browsers or a bundler (Vite, esbuild, Rolldown, etc.)
-> **Last researched:** 2026-10-28, from the TypeScript blog, release notes and handbook, the Node.js docs and the typescript-eslint docs (see [Sources](#sources)).
+> **Last researched:** 2026-10-28, from the TypeScript blog, release notes and handbook, the Node.js docs and the typescript-eslint docs (see [Sources](#18-sources)).
 > **Re-check when:** TypeScript ships a new minor version: sections 1, 2, 11 and 15.
 > **Related:** [react.md](react.md) (React-specific typing), [nextjs.md](nextjs.md) (Next.js `tsconfig`, route types and type generation), [trpc.md](trpc.md) (typed APIs and dates on the wire), [nestjs.md](nestjs.md) (decorators and the NestJS toolchain).
 
@@ -58,7 +58,7 @@ This file is the general one: framework files such as [react.md](react.md), [nex
 16. [Quick reference](#16-quick-reference)
 17. [PR checklist](#17-pr-checklist)
 
-Then: [Sources](#sources).
+Then: [18. Sources](#18-sources).
 
 ---
 
@@ -807,7 +807,7 @@ Before you call a change finished (this applies to AI agents too):
 
 ---
 
-## Sources
+## 18. Sources
 
 - [Announcing TypeScript 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) (Jul 8, 2026)
 - [Announcing TypeScript 7.1 Beta](https://devblogs.microsoft.com/typescript/announcing-typescript-7-1-beta/) (Oct 20, 2026)

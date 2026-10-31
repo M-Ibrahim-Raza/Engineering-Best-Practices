@@ -1,7 +1,7 @@
 # Next.js Best Practices (App Router)
 
 > **Baseline:** Next.js 16.4 · React 19.3 · framework minimum Node.js 20.9 and TypeScript 5.1 (the project's own versions are set in [typescript.md §1](typescript.md#1-toolchain-and-versions))
-> **Last researched:** 2026-10-28, from the official Next.js blog and docs and react.dev (see [Sources](#sources)).
+> **Last researched:** 2026-10-28, from the official Next.js blog and docs and react.dev (see [Sources](#22-sources)).
 > **Re-check when:** Next.js ships a new minor version: sections 1, 4, 5, 8.8, 9, 11, 12, 18 and 19.
 > **Related:** [react.md](react.md) (components, state, effects, forms and the Server Action result shape), [typescript.md](typescript.md) (Node.js and TypeScript versions, `tsconfig`, base ESLint config), [tanstack-query.md](tanstack-query.md) (client-side server state), [trpc.md](trpc.md) (calling a tRPC API from Next.js).
 
@@ -35,7 +35,7 @@ These rules are for anyone writing Next.js App Router code in a project that use
 - **MUST** validate every Server Action input with a schema ([§7](#7-mutations-and-server-actions)).
 - **MUST** call revalidation (`updateTag`, `revalidatePath`) before `redirect()` ([§7](#7-mutations-and-server-actions)).
 - **MUST** check authentication and authorization in every Server Action, directly or through the DAL function it calls ([§8.1](#81-authentication-and-authorization)).
-- **MUST** route all data reads and writes through a `server-only` Data Access Layer that returns DTOs ([§8.2](#82-data-access-layer-and-dtos)).
+- **MUST** route all data reads and writes through a `server-only` Data Access Layer that returns DTOs (Data Transfer Objects: objects with only the fields the caller may see) ([§8.2](#82-data-access-layer-and-dtos)).
 - **MUST** prefix only truly public environment variables with `NEXT_PUBLIC_` ([§8.3](#83-preventing-data-leaks)).
 - **MUST** stay on a patched Next.js version and follow the security release program ([§8.8](#88-staying-patched)).
 - **MUST NOT** treat `proxy.ts` as your security boundary ([§10](#10-proxy-proxyts)).
@@ -64,7 +64,7 @@ These rules are for anyone writing Next.js App Router code in a project that use
 19. [Upgrading](#19-upgrading)
 20. [Anti-patterns](#20-anti-patterns)
 
-Then: [PR checklist](#pr-checklist) · [Sources](#sources).
+Then: [21. PR checklist](#21-pr-checklist) · [22. Sources](#22-sources).
 
 ---
 
@@ -166,14 +166,14 @@ proxy.ts                    # same level as app/
 next.config.ts
 ```
 
-- **MUST** keep all database access, secrets, and auth checks in a `server-only` Data Access Layer (`data/`).
+- **MUST** keep all database access, secrets, and auth checks in a `server-only` Data Access Layer (`data/`) — or, if the app calls an existing HTTP API instead of its own database, in a `server-only` API client module ([§6](#6-data-fetching) explains the choice).
   *Why:* one place to audit, and a build error if client code imports it. See [§8](#8-security).
-- **PREFER** keeping route-specific components in a private `_components/` folder inside the route. Move them to `components/` only when 2+ routes use them.
-- **PREFER** route groups `(name)` to give sections different layouts without changing URLs.
+- **SHOULD** keep route-specific components in a private `_components/` folder inside the route. Move them to `components/` only when 2+ routes use them.
+- **SHOULD** use route groups `(name)` to give sections different layouts without changing URLs.
 - **MUST** add a `default.tsx` to every parallel route slot (`@slot`). Return `null` or call `notFound()`.
   *Why:* builds fail without it since 16.
 - **MUST** place `proxy.ts` at the project root (or in `src/`), next to `app/`.
-- **AVOID** barrel files (`index.ts` that re-exports a whole folder) for app code.
+- **SHOULD NOT** use barrel files (`index.ts` that re-exports a whole folder) for app code.
   *Why:* they make it easy to pull server-only or heavy modules into client bundles and slow down compiling.
 
 ---
@@ -181,16 +181,17 @@ next.config.ts
 ## 3. Server and Client Components
 
 - **MUST** keep components as Server Components by default. Add `'use client'` only when a component needs state, effects, event handlers, or browser APIs.
-- **MUST** put `'use client'` as low in the tree as possible (on the interactive leaf). **NEVER** add it to a layout or page just to make one button work.
+- **MUST** put `'use client'` as low in the tree as possible (on the interactive leaf).
   *Why:* everything imported below that line ships to the browser.
-- **PREFER** passing Server Components into Client Components as `children` or props.
+- **MUST NOT** add `'use client'` to a layout or page just to make one button work. Extract that button into its own Client Component instead.
+- **SHOULD** pass Server Components into Client Components as `children` or props.
 
   ```tsx
   // app/_components/collapsible.tsx
   'use client'
-  import { useState } from 'react'
+  import { useState, type ReactNode } from 'react'
 
-  export function Collapsible({ children }: { children: React.ReactNode }) {
+  export function Collapsible({ children }: { children: ReactNode }): ReactNode {
     const [open, setOpen] = useState(false)
     return (
       <section>
@@ -202,49 +203,60 @@ next.config.ts
 
   // app/page.tsx (Server Component)
   <Collapsible>
-    <ServerRenderedComments /> {/* still rendered on the server */}
+    <ServerRenderedComments /> {/* rendered on the server, not re-fetched when the section opens */}
   </Collapsible>
   ```
 
-- **MUST** pass Client Components only the fields they render, as plain serializable values. **NEVER** pass whole database records.
+- **MUST** pass Client Components only the fields they render, as plain serializable values.
   *Why:* every prop is serialized into the page and readable in the browser.
+- **MUST NOT** pass whole database records to a Client Component.
 - **MUST** add `import 'server-only'` to any module that touches the database, secrets, or internal APIs. Add `import 'client-only'` to modules that use `window` or `document`.
   *Why:* turns an accidental cross-import into a build error instead of a leak.
-- **NEVER** make a Client Component `async`. Only Server Components can be async.
-- **PREFER** `use(browser())` from `react-dom` (React 19.3) for components that need browser-only values (`localStorage`, the user's time zone), instead of `useEffect` + a `mounted` flag or `typeof window` checks.
+- **MUST NOT** make a Client Component `async`.
+  *Why:* only Server Components can await during render. React renders an async Client Component's returned promise instead of its JSX, so the UI breaks.
+- **SHOULD** use `use(browser())` from `react-dom` (React 19.3) for components that need browser-only values (`localStorage`, the user's time zone), instead of `useEffect` + a `mounted` flag or `typeof window` checks.
   *Why:* the server renders the nearest `<Suspense>` fallback and the client renders the real thing, with no hydration mismatch.
 
   ```tsx
+  // app/_components/local-time-zone.tsx
   'use client'
-  import { use } from 'react'
+  import { use, type ReactNode } from 'react'
   import { browser } from 'react-dom'
 
-  export function LocalTimeZone() {
+  export function LocalTimeZone(): ReactNode {
     use(browser())
     return <p>{Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
   }
   ```
 
-- **PREFER** rendering a Context directly from a Server Component when the Context only exists to pass server data down (React 19.3). No wrapper provider is needed.
+- **SHOULD** render a Context directly from a Server Component when the Context only exists to pass server data down (React 19.3). No wrapper provider is needed.
 
   ```tsx
-  // user-context.ts
+  // app/(app)/user-context.ts
   'use client'
   import { createContext } from 'react'
-  export const UserContext = createContext<PublicUser | null>(null)
+  import type { PublicUser } from '@/data/users' // the DTO type exported next to getPublicUser below
 
+  export const UserContext = createContext<PublicUser | null>(null)
+  ```
+
+  ```tsx
   // app/(app)/user-provider.tsx (Server Component)
-  export async function UserProvider({ children }: { children: React.ReactNode }) {
-    const user = await getPublicUser() // DAL, returns a DTO
+  import type { ReactNode } from 'react'
+  import { getPublicUser } from '@/data/users' // a DAL function; create it if your project doesn't have one yet
+  import { UserContext } from './user-context'
+
+  export async function UserProvider({ children }: { children: ReactNode }): Promise<ReactNode> {
+    const user = await getPublicUser() // returns a DTO: only the fields the caller may see
     return <UserContext value={user}>{children}</UserContext>
   }
   ```
 
-  It reads cookies, so render it inside `<Suspense>` ([§4](#4-rendering-model-cache-components)).
-- **NEVER** render values during SSR that differ between server and client (`Date.now()`, `Math.random()`, locale formatting, `localStorage`).
+  **MUST** render it inside `<Suspense>` ([§4](#4-rendering-model-cache-components)), since it reads cookies.
+- **MUST NOT** render values during SSR that differ between server and client (`Date.now()`, `Math.random()`, locale formatting, `localStorage`).
   *Why:* hydration mismatch. Use `use(browser())`, or compute on the server and pass the result down.
-- **MUST** expect client state to survive navigation when Cache Components is on. Next.js hides the previous route with React `<Activity>` instead of unmounting it.
-  *Why:* open dialogs, dropdowns and form inputs keep their state when the user goes back. Effects are cleaned up while hidden. Reset state on purpose where that matters.
+- With Cache Components on, Next.js hides the previous route with React `<Activity>` instead of unmounting it, so client state (open dialogs, dropdowns, form inputs) survives when the user navigates back, and Effects clean up while hidden and rerun when the route is shown again.
+- **MUST** reset state explicitly in components where stale state would be wrong after a back-navigation: for example, a dialog that should start closed, or a form that should show its fields empty after a successful submit. Do the reset in the submit handler or a `useLayoutEffect` cleanup; don't rely on unmount to clear it.
 
 ---
 
@@ -264,7 +276,7 @@ Work that is static (no async, module imports, sync file reads, pure computation
   *Why:* otherwise the route can't build a static shell, and the dev overlay shows a blocking-route error.
 - **MUST** `await` `params`, `searchParams`, `cookies()`, `headers()` and `draftMode()`.
   *Why:* the sync forms were removed in 16.
-- **PREFER** pushing `await` as deep in the tree as possible. Pass the promise down instead of awaiting it at the top of a layout or page.
+- **SHOULD** push `await` as deep in the tree as possible. Pass the promise down instead of awaiting it at the top of a layout or page.
 
   ```tsx
   // ❌ Awaiting at the top: the whole layout waits for params
@@ -289,19 +301,21 @@ Work that is static (no async, module imports, sync file reads, pure computation
   }
   ```
 
-- **PREFER** small `<Suspense>` boundaries placed right around the dynamic part, with skeleton fallbacks shaped like the final UI.
+- **SHOULD** place small `<Suspense>` boundaries right around the dynamic part, with skeleton fallbacks shaped like the final UI.
   *Why:* a bigger static shell and less layout shift.
 - **MUST** call `await connection()` (from `next/server`) before `Math.random()`, `Date.now()`, `new Date()` or `crypto.randomUUID()` when the value must be unique per request, and wrap that component in `<Suspense>`. If one shared value is fine, put it in `'use cache'` instead.
-- **PREFER** reading static local files (config JSON, fonts) once at module scope, not inside a component.
+  *Why:* without `connection()`, Next.js can evaluate the call during the build's static prerender, which bakes one random value or timestamp into every request instead of generating a fresh one.
+- **SHOULD** read static local files (config JSON, fonts) once at module scope, not inside a component.
   *Why:* an `await readFile()` inside a component counts as uncached work.
 - **MUST** remove old route segment configs (`dynamic`, `revalidate`, `fetchCache`, `runtime`) when using Cache Components. Express the same intent with `'use cache'`, `cacheLife` and `<Suspense>`.
-  *Why:* Cache Components runs on Node.js only and rejects the `runtime` export. The other options are replaced by the new model (see the "Migrating to Cache Components" guide).
-- **PREFER** `generateStaticParams` for your most-visited dynamic pages. Other URLs get an instant App Shell on first visit and are upgraded to a full prerender in the background (ISR with Cache Components, 16.3+).
-- **PREFER** `export const ensureStatic = 'navigation'` on routes that must stay fully static (marketing, docs, blog). Put it on a layout to cover every page below it.
-  *Why:* the build fails if a dynamic component sneaks in, which protects speed and server cost. Looser levels: `'prefetch'` and `'shell'`.
-- **AVOID** `export const instant = false` unless the route really should block (for example, a page that must never show a loading state).
-- **MUST** fix every Instant Insights warning in the dev overlay, or mark the route `instant = false` on purpose.
-  *Why:* each warning is a navigation that won't feel instant. Each insight also includes a prompt your agent can use to apply the fix.
+  *Why:* Cache Components runs on Node.js only and rejects the `runtime` export. The other options are replaced by the new model; see the [Migrating to Cache Components guide](https://nextjs.org/docs/app/guides/migrating-to-cache-components).
+- **SHOULD** use `generateStaticParams` for your most-visited dynamic pages. Other URLs get an instant App Shell (the static, cacheable part of the page that renders before per-link or per-request content streams in) on first visit and are upgraded to a full prerender in the background (Incremental Static Regeneration, ISR, with Cache Components, 16.3+).
+- **SHOULD** add `export const ensureStatic = 'navigation'` on routes that must stay fully static (marketing, docs, blog). Put it on a layout to cover every page below it.
+  *Why:* the build fails if a dynamic component sneaks in, which protects speed and server cost. Looser levels: `'shell'` (only the App Shell must be static) and `'prefetch'` (the App Shell and the per-link prefetch must both be static).
+- **SHOULD NOT** set `export const instant = false` unless the route really should block (for example, a page that must never show a loading state).
+- **MUST** clear every Instant Insights warning before merging, or mark the route `instant = false` on purpose.
+  *Why:* each warning is a navigation that won't feel instant.
+- Reading the warnings in the dev overlay is a *(human)* step. An agent can instead read them from the `next dev` server log, or query the [Next.js DevTools MCP](https://nextjs.org/docs/app/guides/mcp)'s `get_errors` tool; each insight includes a prompt the agent can use to apply the fix.
 - Note: `<Suspense>` alone doesn't make a component dynamic. Synchronous work inside it still prerenders.
 
 ---
@@ -309,7 +323,7 @@ Work that is static (no async, module imports, sync file reads, pure computation
 ## 5. Caching and revalidation
 
 - **MUST** treat caching as opt-in. `fetch()` and database calls are not cached unless they run inside `'use cache'`.
-- **PREFER** caching at the **data level** (`getProducts()`) when several components reuse the data, and at the **UI level** (a whole component) when rendering is the expensive part.
+- **SHOULD** cache at the **data level** (`getPlans()`) when several components reuse the data, and at the **UI level** (a whole component) when rendering is the expensive part.
 - **MUST** pair every `'use cache'` with `cacheLife(…)`.
   *Why:* without it the implicit `default` profile applies, which is rarely what you meant.
 
@@ -329,32 +343,33 @@ Work that is static (no async, module imports, sync file reads, pure computation
   *Why:* lets you invalidate exactly what changed.
 
   ```ts
-  // data/products.ts
+  // data/plans.ts
   import 'server-only'
   import { cacheLife, cacheTag } from 'next/cache'
 
-  export async function getProduct(id: string) {
+  // Pricing plans are public data, so this cached function checks no auth (see the rule below).
+  export async function getPlan(id: string) {
     'use cache'
     cacheLife('hours')
-    cacheTag('products', `product-${id}`)
-    return db.product.findUnique({ where: { id }, select: { id: true, name: true, price: true } })
+    cacheTag('plans', `plan-${id}`)
+    return db.plan.findUnique({ where: { id }, select: { id: true, name: true, priceCents: true } })
   }
   ```
 
-- **NEVER** put authorization checks inside a `'use cache'` function. Check auth first, then call the cached function.
-  *Why:* a cached result is served to everyone who calls it with the same arguments.
-- **MUST** remember that you can't call `cookies()` or `headers()` inside `'use cache'`. For per-user data, either:
-  - read the value outside and pass it in as an argument (it becomes part of the cache key), or
+- **MUST** return only data that is safe for any caller (public or shared data) from a `'use cache'` DAL function, and **MUST NOT** read cookies or headers or check auth inside it.
+  *Why:* a cached result is served to everyone who calls it with the same arguments, before the function runs again.
+- **MUST** check auth first in the uncached DAL function or Server Action that calls a cached function, never inside the cached function itself. [react.md](react.md#75-caching-cache-components) links here for the same rule.
+- `'use cache'` cannot call `cookies()` or `headers()` directly, because of the rule above. For per-user data, **MUST** choose one of:
+  - read the value outside the cached function and pass it in as an argument (it becomes part of the cache key), or
   - use `'use cache: private'`, which caches only in that user's browser and can be included in prefetches.
 - **MUST** pass small, stable, serializable arguments (IDs, slugs) into cached functions.
   *Why:* arguments and closed-over variables are part of the cache key. Big objects create huge keys and misses. Non-serializable values fail.
-- **NEVER** cache data that must be exact right now (stock counts, live availability, balances, checkout prices) with a long lifetime. Stream it uncached behind `<Suspense>`, or use `cacheLife('seconds')`.
-- Short-lived caches (the `seconds` profile, `revalidate: 0`, or `expire` under 5 minutes) are left out of the prerender and become dynamic holes. Wrap them in `<Suspense>`.
-- **PREFER** `'use cache: remote'` only for expensive shared data with a high hit rate.
+- **MUST NOT** cache data that must be exact at the moment of the request (stock counts, live availability, balances, checkout prices) with a long lifetime. Stream it uncached behind `<Suspense>`, or use `cacheLife('seconds')`.
+- Short-lived caches (the `seconds` profile, `revalidate: 0`, or `expire` under 5 minutes) are left out of the prerender and become dynamic holes. **MUST** wrap them in `<Suspense>`.
+- **SHOULD** use `'use cache: remote'` only for expensive shared data with a high hit rate.
   *Why:* the default runtime cache is in-memory per instance (and short-lived on serverless). Remote caching shares results across instances but adds a network round trip.
-- **MUST** expect all caches to reset on each deploy.
-  *Why:* the build id is part of every cache key, including remote ones.
-- **PREFER** `cacheLife('max')` + `cacheTag` + a webhook that calls `revalidateTag` for CMS-style content, instead of short time-based revalidation.
+- All caches reset on each deploy, because the build id is part of every cache key, including remote ones. Don't rely on a cache surviving a deploy for correctness.
+- **SHOULD** use `cacheLife('max')` + `cacheTag` + a webhook that calls `revalidateTag`, instead of short time-based revalidation, for data that changes only when something external tells you (CMS content, a webhook-driven catalog).
 - **MUST** replace `unstable_cache` with `'use cache'` functions.
 
 ### Choosing how to update the cache after a write
@@ -366,9 +381,9 @@ Work that is static (no async, module imports, sync file reads, pure computation
 | `revalidatePath(path)` | Server Actions, Route Handlers | Invalidates one route. | One route changed and it has no tags. |
 | `refresh()` | Server Actions only | Re-renders the current route. Cache untouched. | Uncached data on the page changed (e.g. a notification count). |
 
-- **PREFER** tags over paths.
+- **SHOULD** use tags over paths.
   *Why:* more precise, less over-invalidation.
-- **NEVER** call `revalidateTag(tag)` with one argument. It's deprecated. Pass a profile (`'max'` in most cases) or use `updateTag` in a Server Action.
+- **MUST NOT** call `revalidateTag(tag)` with one argument. It's deprecated. Pass a profile (`'max'` in most cases) or use `updateTag` in a Server Action.
 
 ---
 
@@ -380,26 +395,29 @@ Work that is static (no async, module imports, sync file reads, pure computation
   ```ts
   // ❌ Waterfall: the second query waits for the first
   const user = await getUser(id)
-  const posts = await getPosts(id)
+  const tasks = await getTasks(id)
 
   // ✅ Parallel
-  const [user, posts] = await Promise.all([getUser(id), getPosts(id)])
+  const [user, tasks] = await Promise.all([getUser(id), getTasks(id)])
   ```
 
-- **PREFER** splitting independent data into separate components, each with its own `<Suspense>`.
+- **SHOULD** split independent data into separate components, each with its own `<Suspense>`.
   *Why:* slow data doesn't hold up fast data.
-- **PREFER** wrapping functions that are called several times per render (like `getCurrentUser`) in `React.cache()`.
+- **SHOULD** wrap functions that are called several times per render (like `getCurrentUser`) in `React.cache()`.
   *Why:* dedupes within one render pass and removes prop drilling. It does nothing in Server Actions or Route Handlers, which aren't render passes.
 - Know the difference: `React.cache` = dedupe within one request. `'use cache'` = reuse across requests.
-- **NEVER** call your own Route Handlers (`fetch('/api/...')`) from Server Components. Call the DAL function directly.
+- **MUST NOT** call your own Route Handlers (`fetch('/api/...')`) from Server Components. Call the DAL function directly.
   *Why:* it adds a network hop and breaks during prerendering.
-- **PREFER** passing an un-awaited promise from a Server Component to a Client Component and reading it with `use()` inside `<Suspense>`.
+- **SHOULD** pass an un-awaited promise from a Server Component to a Client Component and read it with `use()` inside `<Suspense>`.
 
   ```tsx
-  // app/posts/[id]/page.tsx (Server Component)
-  import { Suspense } from 'react'
+  // app/(app)/tasks/[id]/page.tsx (Server Component)
+  import { Suspense, type ReactNode } from 'react'
+  import { getComments } from '@/data/comments'
+  import { Comments } from './comments'
+  import { CommentsSkeleton } from './comments-skeleton'
 
-  export default async function Page({ params }: PageProps<'/posts/[id]'>) {
+  export default async function Page({ params }: PageProps<'/tasks/[id]'>): Promise<ReactNode> {
     const { id } = await params
     const commentsPromise = getComments(id) // not awaited
     return (
@@ -408,111 +426,124 @@ Work that is static (no async, module imports, sync file reads, pure computation
       </Suspense>
     )
   }
+  ```
 
-  // comments.tsx
+  ```tsx
+  // app/(app)/tasks/[id]/comments.tsx
   'use client'
-  import { use } from 'react'
+  import { use, type ReactNode } from 'react'
+  import type { CommentDTO } from '@/data/comments'
 
-  export function Comments({ commentsPromise }: { commentsPromise: Promise<CommentDTO[]> }) {
+  export function Comments({ commentsPromise }: { commentsPromise: Promise<CommentDTO[]> }): ReactNode {
     const comments = use(commentsPromise)
     return <ul>{comments.map((c) => <li key={c.id}>{c.text}</li>)}</ul>
   }
   ```
 
-- **PREFER** a client data library (TanStack Query, SWR) only for client-driven data: polling, infinite scroll, or data that changes from user interaction without a navigation.
-- **MUST** pick one data-access approach per project and stick to it: a **Data Access Layer** for new projects, or calls to an **existing HTTP API** for projects with a separate backend.
+- **SHOULD** use a client data library (TanStack Query, SWR) only for client-driven data: polling, infinite scroll, or data that changes from user interaction without a navigation.
+- **MUST** pick one data-access approach per project: if the app reads its own database, route all reads and writes through a `server-only` Data Access Layer; if it calls an existing HTTP API (for example a NestJS API, possibly over tRPC), the `server-only` API client module is the DAL boundary. Don't mix the two in the same project.
   *Why:* mixing them makes it unclear where auth checks live.
-- **PREFER** `after()` from `next/server` for work that shouldn't delay the response (logging, analytics, cache warming).
+- **SHOULD** use `after()` from `next/server` for work that shouldn't delay the response (logging, analytics, cache warming).
 
 ---
 
 ## 7. Mutations and Server Actions
 
 - **MUST** use Server Actions (`'use server'`) for mutations from your own UI. Use Route Handlers for webhooks and external clients.
-- **NEVER** use Server Actions to load data for rendering.
+- **MUST NOT** use Server Actions to load data for rendering.
   *Why:* they're POST requests, and the client runs them one at a time. Fetch in Server Components instead.
 - **MUST** keep action files thin: **validate → call the DAL (which does auth) → revalidate → return or redirect.**
 - **MUST** validate every input with a schema (Zod, Valibot). `FormData`, arguments and headers are untrusted.
   *Why:* schemas check shape only, not ownership. You still need authorization ([§8](#8-security)).
-- **PREFER** sending an ID plus the change, never a whole object. Re-read the record on the server, scoped to the signed-in user.
-- **MUST** return only what the UI needs (`{ ok: true }`, field errors). **NEVER** return raw database rows.
+- **SHOULD** send only an ID plus the change, not a whole object, and re-read the record on the server, scoped to the signed-in user.
+- **MUST** return only what the UI needs (`{ ok: true }`, field errors).
   *Why:* return values are serialized to the browser.
-- **PREFER** `<form action={…}>` so forms work before JavaScript loads.
-- **PREFER** `useActionState` for result and pending state, `useFormStatus` inside submit buttons, and `useOptimistic` for instant feedback.
-- **PREFER** returning expected errors (validation, "email already taken") as values. Throw only for unexpected errors, which error boundaries catch.
+- **MUST NOT** return raw database rows from a Server Action.
+- **SHOULD** use `<form action={…}>` so forms work before JavaScript loads.
+- **SHOULD** use `useActionState` for result and pending state, `useFormStatus` inside submit buttons, and `useOptimistic` for instant feedback; [react.md §8](react.md#8-mutations-forms-and-actions) covers these in detail.
+- **MUST** return expected errors (validation, "that project is archived") as values, using the same result shape as [react.md §8](react.md#8-mutations-forms-and-actions), which owns it. Throw only for unexpected errors, which error boundaries catch.
 - **MUST** call revalidation (`updateTag`, `revalidatePath`) **before** `redirect()`.
   *Why:* `redirect()` throws, so code after it never runs.
-- **NEVER** catch `redirect()` or `notFound()` in a `try/catch` that swallows them. Call them outside the `try`, or rethrow with `unstable_rethrow(error)` at the top of the `catch`.
-- **NEVER** fire several Server Actions with `Promise.all` from the client.
+- **MUST NOT** catch `redirect()` or `notFound()` in a `try/catch` that swallows them. Call them outside the `try`, or rethrow with `unstable_rethrow(error)` at the top of the `catch`.
+- **MUST NOT** fire several Server Actions with `Promise.all` from the client.
   *Why:* Next.js sends them one at a time per client. Do parallel work inside one action.
-- **NEVER** mutate during render (setting cookies, writing to the DB, revalidating inside a page component). Use a Server Action.
-- **AVOID** raising `serverActions.bodySizeLimit` (default 1 MB) unless needed. **PREFER** direct-to-storage uploads (presigned URLs) for files.
-- **MUST** handle the "Failed to find Server Action" error (an old browser tab after a deploy) with a retry or refresh option in the UI.
-- **PREFER** `<Form>` from `next/form` for search and filter forms that navigate with query params.
+- **MUST NOT** mutate during render (setting cookies, writing to the DB, revalidating inside a page component). Use a Server Action instead.
+  *Why:* prefetches and crawlers render pages too, so they would trigger the mutation.
+- **SHOULD NOT** raise `serverActions.bodySizeLimit` (default 1 MB) unless needed; it's one of the approved experimental flags ([§1](#1-baseline-setup)) precisely for this.
+- **SHOULD** use direct-to-storage uploads (presigned URLs) for files instead.
+- **MUST** handle the "Failed to find Server Action" error (the client's cached action ID doesn't match the running deployment — for example, an old browser tab left open across a deploy) with a retry or refresh option in the UI.
+  *Why:* without a handler, the user sees a thrown error with no way forward. If the error happens without a recent deploy, check that every instance shares the same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` ([§8.5](#85-server-action-settings)); mismatched keys produce the same error.
+- **SHOULD** use `<Form>` from `next/form` for search and filter forms that navigate with query params.
 
 Full example:
 
 ```ts
-// app/posts/actions.ts
+// app/(app)/tasks/actions.ts
 'use server'
 
 import * as z from 'zod'
 import { updateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createPost } from '@/data/posts' // auth + authorization happen inside the DAL
+import { createTask } from '@/data/tasks' // createTask checks authentication and authorization before writing
 
-const CreatePostSchema = z.object({
+const CreateTaskSchema = z.object({
   title: z.string().trim().min(1).max(200),
-  body: z.string().trim().min(1),
 })
 
-export type CreatePostState = { errors?: { title?: string[]; body?: string[] } }
+// The same result shape as react.md §8: an idle/error/success union. This action redirects on
+// success instead of returning a success value, so the client only ever sees 'idle' or 'error'.
+export type CreateTaskState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string; fieldErrors?: Record<string, string[] | undefined> }
 
-export async function createPostAction(
-  _prev: CreatePostState,
+export async function createTaskAction(
+  _prev: CreateTaskState,
   formData: FormData,
-): Promise<CreatePostState> {
-  const parsed = CreatePostSchema.safeParse({
+): Promise<CreateTaskState> {
+  const parsed = CreateTaskSchema.safeParse({
     title: formData.get('title'),
-    body: formData.get('body'),
   })
   if (!parsed.success) {
-    return { errors: z.flattenError(parsed.error).fieldErrors }
+    return {
+      status: 'error',
+      message: 'Please check the task details.',
+      fieldErrors: z.flattenError(parsed.error).fieldErrors,
+    }
   }
 
-  const post = await createPost(parsed.data)
-  updateTag('posts')            // before redirect
-  redirect(`/posts/${post.id}`) // throws; nothing below runs
+  const task = await createTask(parsed.data)
+  updateTag('tasks')            // before redirect: redirect() throws, so later code never runs
+  redirect(`/tasks/${task.id}`)
 }
 ```
 
 ```tsx
-// app/posts/new/create-post-form.tsx
+// app/(app)/tasks/new/create-task-form.tsx
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, type ReactNode } from 'react'
 import { useFormStatus } from 'react-dom'
-import { createPostAction } from '../actions'
+import { createTaskAction, type CreateTaskState } from '../actions'
 
-export function CreatePostForm() {
-  const [state, formAction] = useActionState(createPostAction, {})
+const initialState: CreateTaskState = { status: 'idle' }
+
+export function CreateTaskForm(): ReactNode {
+  const [state, formAction] = useActionState(createTaskAction, initialState)
 
   return (
     <form action={formAction}>
       <label htmlFor="title">Title</label>
       <input id="title" name="title" aria-describedby="title-error" />
-      {state.errors?.title && <p id="title-error">{state.errors.title[0]}</p>}
-
-      <label htmlFor="body">Body</label>
-      <textarea id="body" name="body" aria-describedby="body-error" />
-      {state.errors?.body && <p id="body-error">{state.errors.body[0]}</p>}
+      {state.status === 'error' && state.fieldErrors?.title && (
+        <p id="title-error">{state.fieldErrors.title[0]}</p>
+      )}
 
       <SubmitButton />
     </form>
   )
 }
 
-function SubmitButton() {
+function SubmitButton(): ReactNode {
   const { pending } = useFormStatus()
   return <button disabled={pending}>{pending ? 'Saving…' : 'Save'}</button>
 }
@@ -524,36 +555,39 @@ function SubmitButton() {
 
 ### 8.1 Authentication and authorization
 
-- **MUST** check authentication **and** authorization inside every Server Action, Route Handler, and DAL function.
+- **MUST** check authentication **and** authorization in every Server Action and Route Handler, directly or through the DAL function it calls, and in every DAL function itself.
   *Why:* every Server Action is a public POST endpoint. Checks on the page, layout or proxy don't protect it.
-- **MUST** check ownership, not just login (prevents IDOR).
+- **MUST** check ownership, not just login, to prevent Insecure Direct Object Reference (IDOR): reading or changing another user's record by changing an ID.
 
   ```ts
-  // data/items.ts
+  // data/tasks.ts
   import 'server-only'
 
-  export async function completeItem(itemId: string) {
-    const user = await requireUser() // throws or redirects if not signed in
-    const item = await db.item.findFirst({ where: { id: itemId, ownerId: user.id } })
-    if (!item) throw new Error('Forbidden')
-    await db.item.update({ where: { id: item.id }, data: { completed: true } })
+  export async function completeTask(taskId: string): Promise<void> {
+    const user = await requireUser() // throws or redirects if not signed in; see §8.2
+    const task = await db.task.findFirst({ where: { id: taskId, ownerId: user.id } })
+    if (!task) throw new Error('Forbidden')
+    await db.task.update({ where: { id: task.id }, data: { status: 'done' } })
   }
   ```
 
-- **NEVER** rely on auth checks in a layout.
+- **MUST NOT** rely on auth checks in a layout.
   *Why:* layouts don't re-render on client navigation, and hiding `{children}` doesn't stop nested segments or Server Actions from running. Check in the page, the leaf component, or (best) the DAL.
-- **NEVER** "protect" a route by returning `null` from a layout or top-level component.
-- **PREFER** using `proxy.ts` only for **optimistic** checks (is there a session cookie?) to redirect early. **NEVER** query the database there.
+- **MUST NOT** "protect" a route by returning `null` from a layout or top-level component.
+- **SHOULD** use `proxy.ts` only for **optimistic** checks (is there a session cookie?) to redirect early.
+- **MUST NOT** query the database in `proxy.ts`.
   *Why:* proxy runs on every matched request, including prefetches. Real checks belong next to the data.
-- **PREFER** an auth library (Better Auth, Auth.js, Clerk, Auth0, WorkOS, Supabase, …) over hand-rolled auth.
-- **MUST** set session cookies on the server with `httpOnly: true`, `secure: true`, `sameSite: 'lax'` (or `'strict'`), an expiry, and `path: '/'`. Keep the payload minimal (user ID, role). **NEVER** put PII or secrets in it.
-- **PREFER** extra checks (re-authentication, step-up) for destructive actions like deleting an account.
-- With Cache Components on, follow the "Authentication with Cache Components" guide for reading sessions and caching per-user data.
+- **SHOULD** use an auth library (Better Auth, Auth.js, Clerk, Auth0, WorkOS, Supabase, …) over hand-rolled auth.
+- **MUST** set session cookies on the server with `httpOnly: true`, `secure: true`, `sameSite: 'lax'` (or `'strict'`), an expiry, and `path: '/'`. Keep the payload minimal (user ID, role).
+- **MUST NOT** put personally identifiable information (PII) or secrets in a session cookie's payload.
+- **SHOULD** add extra checks (re-authentication, step-up) for destructive actions like deleting an account.
+- **SHOULD** follow the [Authentication with Cache Components guide](https://nextjs.org/docs/app/guides/authentication-with-cache-components) for reading sessions and caching per-user data; [§5](#5-caching-and-revalidation) states the caching half of that rule (no auth checks inside `'use cache'`).
 
 ### 8.2 Data Access Layer and DTOs
 
-- **MUST** route all data reads and writes through a `server-only` DAL that checks auth and returns **DTOs** (only the fields the caller may see).
+- **MUST** route all data reads and writes through a `server-only` DAL that checks auth and returns **DTOs** (Data Transfer Objects: only the fields the caller may see). [§6](#6-data-fetching) explains the DAL vs. HTTP-API choice.
 - **MUST** let only the DAL import database clients and read secret `process.env` values.
+- Cached (`'use cache'`) DAL functions have a narrower rule than the one above: they **MUST** return only data safe for any caller and **MUST NOT** check auth themselves; [§5](#5-caching-and-revalidation) owns it.
 
 ```ts
 // data/auth.ts
@@ -563,7 +597,9 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export const requireUser = cache(async () => {
+  // 'session' is this example's cookie name; use whatever name your auth setup sets.
   const token = (await cookies()).get('session')?.value
+  // verifySession comes from your auth library (Better Auth, Auth.js, ...) or a hand-rolled session store.
   const session = await verifySession(token)
   if (!session) redirect('/login')
   return { id: session.userId, role: session.role }
@@ -575,7 +611,9 @@ export const requireUser = cache(async () => {
 import 'server-only'
 import { requireUser } from './auth'
 
-export async function getProfileDTO(slug: string) {
+export interface ProfileDTO { name: string; phone: string | null }
+
+export async function getProfileDTO(slug: string): Promise<ProfileDTO | null> {
   const viewer = await requireUser()
   const user = await db.user.findUnique({ where: { slug } })
   if (!user) return null
@@ -593,45 +631,46 @@ export async function getProfileDTO(slug: string) {
 - **MUST** prefix only truly public env vars with `NEXT_PUBLIC_`. Everything else stays server-only.
   *Why:* `NEXT_PUBLIC_` values are inlined into the client bundle at build time.
 - **MUST** add `.env*` files to `.gitignore`. Commit only `.env.example` (placeholders, no real secrets) and `.env.test` (dummy values). See [environment-configuration.md §3–4](environment-configuration.md#3-env-files).
-- **PREFER** enabling `experimental.taint` and using `experimental_taintObjectReference` / `experimental_taintUniqueValue` on sensitive objects and values (tokens, password hashes).
-  *Why:* a second safety net. React throws if a tainted value is passed to the client. Still filter in the DAL.
-- **NEVER** show raw server error messages to users. In production, Next.js replaces them with a generic message and an `error.digest` that you match in server logs.
+- **MAY** enable `experimental.taint` and use `experimental_taintObjectReference` / `experimental_taintUniqueValue` on sensitive objects and values (tokens, password hashes), as a second safety net. It isn't on the approved experimental flags list ([§1](#1-baseline-setup)), so record why in an ADR if you turn it on.
+  *Why:* React throws if a tainted value is passed to the client. Still filter in the DAL; taint doesn't replace DTOs.
+- **MUST NOT** show raw server error messages to users. In production, Next.js replaces them with a generic message and an `error.digest` that you match in server logs.
 
 ### 8.4 Untrusted input
 
 - **MUST** validate `params` and `searchParams`. Any folder in `[brackets]` is user input.
-- **NEVER** make security decisions from client-provided values (`?isAdmin=true`, hidden form fields, client-supplied user IDs). Re-derive identity from the session every time.
-- **MUST** use parameterized queries or an ORM. **NEVER** build SQL by string concatenation.
-- **NEVER** use `dangerouslySetInnerHTML` with user content unless it has been sanitized.
+- **MUST NOT** make security decisions from client-provided values (`?isAdmin=true`, hidden form fields, client-supplied user IDs). Re-derive identity from the session every time.
+- **MUST** use parameterized queries or an ORM.
+- **MUST NOT** build SQL by string concatenation.
+- **MUST NOT** use `dangerouslySetInnerHTML` with user content unless it has been sanitized.
 
 ### 8.5 Server Action settings
 
 - **MUST** set a stable `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (`openssl rand -base64 32`) when running more than one server instance.
   *Why:* each build otherwise generates its own key, and instances can't decrypt each other's action references.
-- **PREFER** listing your proxy or CDN domains in `experimental.serverActions.allowedOrigins` when the public domain differs from the server host.
-  *Why:* Server Actions reject requests whose `Origin` doesn't match `Host` (CSRF protection).
-- **NEVER** rely on closure encryption to hide secrets. Values captured by an inline action are encrypted, but the safe default is to not capture sensitive data at all.
-- **PREFER** rate limiting on expensive or abusable actions and endpoints (login, sign-up, password reset, sending email, AI calls).
+- **SHOULD** list your proxy or CDN domains in `experimental.serverActions.allowedOrigins` ([§1](#1-baseline-setup)) when the public domain differs from the server host.
+  *Why:* Server Actions reject requests whose `Origin` doesn't match `Host` (Cross-Site Request Forgery, CSRF, protection).
+- **MUST NOT** rely on closure encryption to hide secrets. Values captured by an inline action are encrypted, but the safe default is to not capture sensitive data at all.
+- **SHOULD** rate-limit expensive or abusable actions and endpoints (login, sign-up, password reset, sending email, AI calls).
 
 ### 8.6 Headers, CSP and images
 
-- **PREFER** a Content Security Policy and standard security headers (`X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors` / `X-Frame-Options`) via `headers()` in `next.config.ts` or via proxy.
-  *Why:* blocks XSS and clickjacking. A nonce-based CSP forces request-time rendering, so weigh it against keeping pages static.
-- **MUST** use `images.remotePatterns` with exact hosts. **NEVER** use the deprecated `images.domains`.
+- **SHOULD** set a Content Security Policy (CSP) and standard security headers (`X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors` / `X-Frame-Options`) via `headers()` in `next.config.ts` or via proxy.
+  *Why:* blocks cross-site scripting (XSS) and clickjacking. A nonce-based CSP makes every page render at request time, so weigh it against keeping pages static.
+- **MUST** use `images.remotePatterns` with exact hosts, not the deprecated `images.domains`.
 - **MUST** configure `images.localPatterns` if local image URLs use query strings.
-- **NEVER** enable `images.dangerouslyAllowLocalIP` outside private networks.
+- **MUST NOT** enable `images.dangerouslyAllowLocalIP` outside private networks.
 
 ### 8.7 Rewrites and redirects
 
-- **NEVER** build a rewrite or redirect destination **hostname** from request input (headers, query, path).
-  *Why:* it enables SSRF (rewrites) and open redirects (CVE-2026-64645).
+- **MUST NOT** build a rewrite or redirect destination **hostname** from request input (headers, query, path).
+  *Why:* it enables Server-Side Request Forgery (SSRF, the server making a request to an attacker-chosen destination; rewrites) and open redirects (CVE-2026-64645).
 - **MUST** check user-supplied redirect targets (`?next=/dashboard`) against an allowlist of internal paths.
 
 ### 8.8 Staying patched
 
 - **MUST** follow the Next.js security release program. Since July 2026, security releases are pre-announced on the Next.js blog roughly monthly. Urgent fixes can still ship any time.
 - **MUST** stay on the latest 16.x minor or a supported LTS line. In July 2026, 16.2 was Active LTS and 15.5 was Maintenance LTS. Check the blog for the current lines.
-- **PREFER** keeping `experimental.agentUpgrade: 'security'` (the default) so dev and build remind you about security upgrades.
+- **SHOULD** keep `experimental.agentUpgrade: 'security'` ([§1](#1-baseline-setup)), the default, so dev and build remind you about security upgrades.
 - **MUST** run `npm audit` (or your package manager's equivalent) in CI and commit your lockfile.
 
 ### 8.9 Security audit checklist
@@ -647,27 +686,27 @@ export async function getProfileDTO(slug: string) {
 
 ## 9. Routing and navigation
 
-- **MUST** use `<Link>` for internal navigation. **NEVER** use a plain `<a href>` for internal routes.
+- **MUST** use `<Link>` for internal navigation, not a plain `<a href>`.
   *Why:* a plain `<a>` does a full page reload and skips prefetching.
-- **PREFER** `useRouter().push()` only inside event handlers that run logic first. Otherwise use `<Link>`.
-- **PREFER** the default prefetching. With Partial Prefetching, Next.js prefetches **one reusable shell per route** (not per link) and reuses it. Prefetching only runs in production.
-- **PREFER** `<Link prefetch={true}>` only on links that are likely to be clicked and where per-link content matters (top search results, main nav).
+- **SHOULD** use `useRouter().push()` only inside event handlers that run logic first. Otherwise use `<Link>`.
+- **SHOULD** keep the default prefetching. With Partial Prefetching, Next.js prefetches **one reusable shell per route** (not per link) and reuses it. Prefetching only runs in production.
+- **SHOULD** use `<Link prefetch={true}>` only on links that are likely to be clicked and where per-link content matters (top search results, main nav).
   *Why:* each such link costs a server call while it's visible.
-- **PREFER** `await navigation()` (from `next/cache`) inside parts that are too expensive to prefetch, so they load only on a real navigation. Use `await prefetch()` to keep content out of the default shell until an explicit prefetch.
-- **PREFER** inline `<Suspense>` close to the data for fine-grained loading states. Use `loading.tsx` when one fallback for the whole route is enough.
+- **SHOULD** use `await navigation()` (from `next/cache`) inside parts that are too expensive to prefetch, so they load only on a real navigation. Use `await prefetch()` to keep content out of the default shell until an explicit prefetch.
+- **SHOULD** place inline `<Suspense>` close to the data for fine-grained loading states. Use `loading.tsx` when one fallback for the whole route is enough.
 - **MUST** wrap Client Components that call `useSearchParams()` in `<Suspense>`.
   *Why:* otherwise everything up to the nearest boundary renders on the client only.
-- **PREFER** root params (`next/root-params`, 16.3+) for params above the root layout, such as `[lang]`.
+- **SHOULD** use root params (`next/root-params`, 16.3+) for params above the root layout, such as `[lang]`.
 
   ```tsx
   import { lang } from 'next/root-params'
-  const language = await lang() // works in Server Components and 'use cache'; not yet in Route Handlers or Server Actions
+  const language = await lang() // works in Server Components and 'use cache'; as of Next.js 16.4, not supported in Route Handlers or Server Actions
   ```
 
 - **MUST** type route props with the generated global helpers: `PageProps<'/blog/[slug]'>`, `LayoutProps<'/dashboard'>`, `RouteContext<'/api/posts/[id]'>`.
 - **MUST** call `notFound()` when a record doesn't exist, rather than rendering an empty page.
-- **PREFER** parallel + intercepting routes (`@modal` + `(.)photo/[id]`) for modals that should have their own URL. Remember `default.tsx`.
-- **PREFER** React's `<ViewTransition>` (stable in React 19.3) for navigation animations, with the `transitionTypes` prop on `<Link>` (16.2+) for direction-specific animations. See the `viewTransition` config docs.
+- **SHOULD** use parallel + intercepting routes (`@modal` + `(.)photo/[id]`) for modals that should have their own URL. Remember `default.tsx`.
+- **MAY** use React's `<ViewTransition>` (stable in React 19.3) for navigation animations, with the `transitionTypes` prop on [`<Link>`](https://nextjs.org/docs/app/api-reference/components/link#transitiontypes) (16.2+) for direction-specific animations. View transitions work in the App Router with no config flag; see the [view transitions guide](https://nextjs.org/docs/app/guides/view-transitions) for the patterns.
 
 ---
 
@@ -675,17 +714,18 @@ export async function getProfileDTO(slug: string) {
 
 `proxy.ts` replaced `middleware.ts` in Next.js 16. It runs on the Node.js runtime before routes render. Next.js recommends it as a **last resort**.
 
-- **PREFER** `redirects()`, `rewrites()` and `headers()` in `next.config.ts` for fixed rules. Use proxy only for logic that depends on the request (locale detection, A/B buckets, optimistic auth redirects).
-- **NEVER** treat proxy as your security boundary.
+- **SHOULD** use `redirects()`, `rewrites()` and `headers()` in `next.config.ts` for fixed rules. Use proxy only for logic that depends on the request (locale detection, A/B buckets, optimistic auth redirects).
+- **MUST NOT** treat proxy as your security boundary.
   *Why:* Server Actions are POSTs to the page route, so a matcher change can silently drop coverage, and proxy bypass bugs have happened (CVE-2026-64642).
-- **NEVER** do slow work in proxy (DB queries, slow API calls).
+- **MUST NOT** do slow work in proxy (DB queries, slow API calls).
   *Why:* it runs on every matched request, including prefetches.
 - **MUST** use a `matcher` that skips static assets.
   *Why:* without one, proxy also runs for `_next/static`, `_next/image` and `public/` files, and an auth redirect can block CSS, JS and images.
-- **NEVER** set the `runtime` config in `proxy.ts`. It throws.
-- **MUST** pass data upstream with `NextResponse.next({ request: { headers } })`. **NEVER** use `NextResponse.next({ headers })` for that.
+- **MUST NOT** set the `runtime` config in `proxy.ts`. It throws.
+- **MUST** pass data upstream with `NextResponse.next({ request: { headers } })`, not `NextResponse.next({ headers })`.
   *Why:* the second form sends the headers to the browser.
-- **NEVER** rely on shared module state or globals in proxy.
+- **MUST NOT** rely on shared module state or globals in proxy.
+  *Why:* proxy can run in multiple isolated instances or be recreated between requests, so in-memory state silently resets or diverges between them.
 
 ```ts
 // proxy.ts
@@ -711,7 +751,7 @@ Migrating: `npx @next/codemod@canary middleware-to-proxy .` renames the file and
 
 ## 11. Error handling
 
-- **MUST** add `error.tsx` to route segments that can fail, and use `retry()` (stable since 16.3) to recover.
+- **MUST** add `error.tsx` to every route segment that fetches data, reads dynamic params, or calls a Server Action, and use `retry()` (stable since 16.3) to recover.
   *Why:* `retry()` re-fetches and re-renders the segment. `reset()` only clears client state, so it doesn't help with server or data errors.
 
   ```tsx
@@ -734,12 +774,13 @@ Migrating: `npx @next/codemod@canary middleware-to-proxy .` renames the file and
   *Why:* values thrown in Client Components may not be `Error` objects.
 - **MUST** add `app/global-error.tsx` with its own `<html>` and `<body>`.
   *Why:* it replaces the root layout when that fails. It can't export `metadata`, so use React's `<title>`. Your global styles and theme don't apply there.
-- **MUST** add `app/not-found.tsx` and call `notFound()` for missing records. `app/global-not-found.tsx` (experimental) handles unmatched URLs app-wide.
-- **PREFER** `catchError` from `next/error` for component-level error boundaries.
+- **MUST** add `app/not-found.tsx` and call `notFound()` for missing records.
+- **MAY** add `app/global-not-found.tsx` to handle unmatched URLs app-wide. It needs the `globalNotFound` flag, which isn't on the approved experimental flags list ([§1](#1-baseline-setup)), so record why in an ADR if you enable it.
+- **SHOULD** use `catchError` from `next/error` for component-level error boundaries.
   *Why:* unlike a hand-written React error boundary, it doesn't catch `redirect()` / `notFound()`, supports `retry()`, and clears on navigation.
-- **PREFER** wrapping risky subtrees in error boundaries the same way you wrap async subtrees in `<Suspense>`.
-- **PREFER** reporting server errors from `instrumentation.ts` with `onRequestError`, and using `error.digest` to match client reports to server logs.
-- **PREFER** `unauthorized()` / `forbidden()` from `next/navigation` (behind `experimental.authInterrupts`) to render `unauthorized.tsx` / `forbidden.tsx`, if you enable that flag.
+- **SHOULD** wrap risky subtrees in error boundaries the same way you wrap async subtrees in `<Suspense>`.
+- **SHOULD** report server errors from `instrumentation.ts` with `onRequestError`, and use `error.digest` to match client reports to server logs.
+- **SHOULD** use `unauthorized()` / `forbidden()` from `next/navigation` (behind the approved `authInterrupts` flag, [§1](#1-baseline-setup)) to render `unauthorized.tsx` / `forbidden.tsx`.
 
 ---
 
@@ -751,8 +792,10 @@ Migrating: `npx @next/codemod@canary middleware-to-proxy .` renames the file and
   *Why:* prevents layout shift and serves resized, modern formats.
 - **MUST** set `sizes` on responsive and `fill` images.
   *Why:* without it the browser may download an image far larger than needed.
-- **MUST** mark the LCP (largest above-the-fold) image with `loading="eager"` or `fetchPriority="high"`. Use `preload` only in the specific cases the docs describe. **NEVER** use `priority`; it's deprecated since 16.
-- **PREFER** static imports for local images (`import hero from './hero.jpg'`).
+- **MUST** mark the Largest Contentful Paint (LCP) image — the largest element visible without scrolling — with `loading="eager"` or `fetchPriority="high"`.
+- **SHOULD** use `preload` only when it's the one LCP image and neither `loading` nor `fetchPriority` is already set; see the [Image component's `preload` reference](https://nextjs.org/docs/app/api-reference/components/image#preload) for the rest of the cases.
+- **MUST NOT** use `priority`; it's deprecated since 16.
+- **SHOULD** use static imports for local images (`import hero from './hero.jpg'`).
   *Why:* width, height and a blur placeholder are filled in automatically.
 - Note: `images.qualities` defaults to `[75]` since 16. Add other values to the config if you need them.
 
@@ -761,22 +804,22 @@ Migrating: `npx @next/codemod@canary middleware-to-proxy .` renames the file and
 - **MUST** load fonts with `next/font` (`next/font/google` or `next/font/local`), defined once and exposed as a CSS variable.
   *Why:* fonts are self-hosted with your assets, with no external requests and less layout shift.
 - **MUST** load third-party scripts with `next/script` and the lightest strategy that works (`lazyOnload` > `afterInteractive` > `beforeInteractive`).
-- **PREFER** `@next/third-parties` for Google Analytics, Tag Manager, Maps and YouTube embeds.
+- **SHOULD** use `@next/third-parties` for Google Analytics, Tag Manager, Maps and YouTube embeds.
 
 ### JavaScript size
 
-- **PREFER** doing heavy transforms (markdown, syntax highlighting, chart data shaping) in Server Components.
+- **SHOULD** do heavy transforms (markdown, syntax highlighting, chart data shaping) in Server Components.
   *Why:* the library stays on the server, and the client only gets HTML.
-- **PREFER** `next/dynamic` or `import()` for heavy client-only widgets that aren't needed at first paint (editors, maps, charts).
-- **PREFER** `experimental.optimizePackageImports` for libraries with hundreds of exports that Next.js doesn't already optimize.
-- **PREFER** `serverExternalPackages` for server packages that break when bundled.
-- **PREFER** the React Compiler (`reactCompiler: true`) and **AVOID** hand-written `useMemo` / `useCallback` / `memo` unless profiling shows a need.
+- **SHOULD** use `next/dynamic` or `import()` for heavy client-only widgets that aren't needed at first paint (editors, maps, charts).
+- **SHOULD** use the approved `experimental.optimizePackageImports` flag ([§1](#1-baseline-setup)) for libraries with hundreds of exports that Next.js doesn't already optimize.
+- **SHOULD** use `serverExternalPackages` for server packages that break when bundled.
+- **SHOULD** rely on the React Compiler (`reactCompiler: true`) for re-render optimization. [react.md §6](react.md#6-memoization-and-the-react-compiler) owns the rule on manual memoization: MUST NOT add `useMemo`, `useCallback` or `memo` in new code except its listed cases.
 - **MUST** check bundle size before release: `npx next analyze` (Turbopack). Save snapshots with `--output` to compare before and after changes.
 
 ### Measuring
 
-- **MUST** measure performance with `next build && next start`, never with `next dev`.
-- **PREFER** `useReportWebVitals` (from `next/web-vitals`) to send Core Web Vitals to your analytics, and Lighthouse in an incognito window for lab checks.
+- **MUST** measure performance with `next build && next start`, not with `next dev`.
+- **SHOULD** use `useReportWebVitals` (from `next/web-vitals`) to send the Core Web Vitals — LCP, Interaction to Next Paint (INP), Cumulative Layout Shift (CLS) — to your analytics, and Lighthouse in an incognito window for lab checks.
 
 ---
 
@@ -784,23 +827,24 @@ Migrating: `npx @next/codemod@canary middleware-to-proxy .` renames the file and
 
 - **MUST** give every page a title and description: `export const metadata` for static values, `generateMetadata` for dynamic ones.
 - **MUST** set `metadataBase` in the root layout so relative Open Graph and canonical URLs resolve.
-- **PREFER** `React.cache` for data shared between `generateMetadata` and the page.
+- **SHOULD** use `React.cache` for data shared between `generateMetadata` and the page.
   *Why:* the query runs once.
 - **MUST** follow the same caching and `<Suspense>` rules inside `generateMetadata` and `generateViewport` as in pages. Uncached fetches there trigger the same insights.
-- **PREFER** file conventions: `opengraph-image.tsx` (with `ImageResponse`), `icon.svg` + `icon.png` (both are emitted as fallbacks since 16.2), `sitemap.ts`, `robots.ts`, `manifest.ts`.
-- **PREFER** `export const viewport` / `generateViewport` for `themeColor` and viewport settings, not `metadata`.
-- Note: for bots that can't handle streamed metadata, Next.js renders the page at request time. Any data source used at build time must also be reachable at request time, or those bots get a 500.
+- **SHOULD** use file conventions: `opengraph-image.tsx` (with `ImageResponse`), `icon.svg` + `icon.png` (both are emitted as fallbacks since 16.2), `sitemap.ts`, `robots.ts`, `manifest.ts`.
+- **SHOULD** use `export const viewport` / `generateViewport` for `themeColor` and viewport settings, not `metadata`.
+- **MUST** make any data source used at build time also reachable at request time.
+  *Why:* bots that can't handle streamed metadata get the page rendered at request time instead; if that data source isn't reachable then, those bots get a 500.
 
 ---
 
 ## 14. Route Handlers
 
-- **PREFER** Route Handlers (`app/**/route.ts`) only for webhooks, public APIs, OAuth callbacks, file downloads, and non-React clients. Use Server Actions for your own UI.
+- **SHOULD** use Route Handlers (`app/**/route.ts`) only for webhooks, public APIs, OAuth callbacks, file downloads, and non-React clients. Use Server Actions for your own UI.
 - **MUST** authenticate, authorize and validate in every Route Handler, as you would for any public endpoint.
 - **MUST** verify webhook signatures before trusting the payload.
 - **MUST** type dynamic segments with `RouteContext<'/api/posts/[id]'>` and `await ctx.params`.
 - Note: with Cache Components, `GET` handlers follow the same prerendering model as pages.
-- **PREFER** setting CORS per route in the handler. Use proxy for CORS only when many routes share the rule.
+- **SHOULD** set CORS per route in the handler. Use proxy for CORS only when many routes share the rule.
 
 ```ts
 // app/api/webhooks/cms/route.ts
@@ -821,16 +865,14 @@ export async function POST(request: Request) {
 
 ## 15. TypeScript and tooling
 
-- **MUST** use `"strict": true` in `tsconfig.json`.
-- **PREFER** `"noUncheckedIndexedAccess": true`.
-  *Why:* catches `undefined` from array and record lookups.
-- **MUST** select "Use Workspace Version" of TypeScript in VS Code so the Next.js TS plugin runs.
-  *Why:* it flags invalid segment config, misplaced `'use client'`, and client hooks used in Server Components.
+- **MUST** use `"strict": true` and `"noUncheckedIndexedAccess": true` in `tsconfig.json` ([typescript.md §2.1](typescript.md#21-baseline-for-every-project) owns these).
+- Selecting "Use Workspace Version" of TypeScript in VS Code, so the Next.js TS plugin runs and flags invalid segment config, misplaced `'use client'`, and client hooks used in Server Components, is a *(human)* step done once per editor. Agents get the equivalent checks from `next typegen && tsc --noEmit` in CI, below.
 - **MUST** enable `typedRoutes: true`. Cast non-literal hrefs with `as Route`.
 - **MUST** run `next typegen` before `tsc --noEmit` in CI.
   *Why:* it generates the route types (`PageProps`, `LayoutProps`, `RouteContext`, typed links) without a full build.
 - **MUST** add `next-env.d.ts` to `.gitignore`. Put custom types in your own `.d.ts` file.
-- **NEVER** set `typescript.ignoreBuildErrors: true` unless CI runs type checks separately.
+  *Why:* Next.js regenerates `next-env.d.ts` on every `next dev` / `next build`, so committing it only adds merge noise and can drift from the installed version's actual globals.
+- **MUST NOT** set `typescript.ignoreBuildErrors: true` unless CI runs type checks separately.
 - **MUST** use ESLint flat config (`eslint.config.mjs`) with `eslint-config-next` (Core Web Vitals + TypeScript presets), or Biome. Keep the `jsx-a11y` rules on.
 - **MUST** validate environment variables with T3 Env: server vars in `data/env.ts` (`server-only`), `NEXT_PUBLIC_` vars in `lib/env.public.ts`, checked at build in `next.config.ts` and at boot in `instrumentation.ts`. See [environment-configuration.md §5–7](environment-configuration.md#5-t3-env-nextjs-setup).
   *Why:* a missing secret fails fast instead of at the first request that needs it.
@@ -839,11 +881,11 @@ export async function POST(request: Request) {
 
 ## 16. Testing
 
-- **PREFER** Vitest (or Jest) for unit tests of pure functions, schemas, and DAL logic.
+- **SHOULD** use Vitest (or Jest) for unit tests of pure functions, schemas, and DAL logic.
 - **MUST** test async Server Components end-to-end with Playwright, not with unit test runners.
   *Why:* unit runners don't fully support async Server Components.
 - **MUST** run e2e tests against a production build (`next build && next start`).
-- **PREFER** the `instant()` helper from `@next/playwright` to lock in what must appear instantly on navigation.
+- **SHOULD** use the `instant()` helper from `@next/playwright` to lock in what must appear instantly on navigation.
   *Why:* a refactor that adds `cookies()` to a shared header, or moves a `<Suspense>`, fails the test instead of silently slowing navigation.
 
   ```ts
@@ -860,23 +902,23 @@ export async function POST(request: Request) {
   ```
 
 - **MUST** test authorization failures, not just success: another user's ID must be rejected, and signed-out calls must fail.
-- **PREFER** unit-testing `proxy.ts` with `unstable_doesProxyMatch`, `isRewrite` and `getRewrittenUrl` from `next/experimental/testing/server`.
+- **SHOULD** unit-test `proxy.ts` with `unstable_doesProxyMatch`, `isRewrite` and `getRewrittenUrl` from `next/experimental/testing/server`.
 
 ---
 
 ## 17. Deployment and self-hosting
 
 - **MUST** run `next build` in CI and fix every build error, including prerender validation errors.
-- **PREFER** `output: 'standalone'` for Docker images.
+- **SHOULD** use `output: 'standalone'` for Docker images.
   *Why:* it copies only the files needed to run, so images are much smaller.
 - When running more than one instance:
   - **MUST** set a shared `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` ([§8.5](#85-server-action-settings)).
-  - **PREFER** a shared cache handler (`cacheHandlers`) for `'use cache: remote'` and ISR. See the self-hosting guide.
-- **PREFER** rolling deploys over hard cutovers.
+  - **SHOULD** use a shared cache handler (`cacheHandlers`) for `'use cache: remote'` and Incremental Static Regeneration (ISR). See the [self-hosting guide](https://nextjs.org/docs/app/guides/self-hosting).
+- **SHOULD** use rolling deploys over hard cutovers.
   *Why:* users in the middle of a mutation keep working. Server Action IDs change between builds (and at least every 14 days).
 - **MUST** rebuild after changing any `NEXT_PUBLIC_` variable.
   *Why:* those values are inlined at build time.
-- **PREFER** OpenTelemetry via `instrumentation.ts` for tracing, and `next start --inspect` (16.2+) to profile CPU and memory in a production build.
+- **SHOULD** use OpenTelemetry via `instrumentation.ts` for tracing, and `next start --inspect` (16.2+) to profile CPU and memory in a production build.
 
 ---
 
@@ -884,14 +926,14 @@ export async function POST(request: Request) {
 
 - **MUST** keep the `AGENTS.md` block that `next dev` writes (16.3+) and commit it.
   *Why:* it points agents to the docs bundled with your installed Next.js version, so they don't rely on stale training data. Point `CLAUDE.md` at `AGENTS.md` and at this file.
-- **PREFER** connecting your agent to the Next.js DevTools MCP.
+- **SHOULD** connect your agent to the Next.js DevTools MCP.
   *Why:* it gives agents routing and caching knowledge plus browser and server logs and errors.
-- **PREFER** using the prompt included with each Instant Insight to have the agent apply the fix.
-- **PREFER** the official skills for larger migrations:
+- **SHOULD** use the prompt included with each Instant Insight to have the agent apply the fix.
+- **SHOULD** use the official skills for larger migrations:
   - Cache Components adoption: `https://github.com/vercel/next.js/tree/canary/skills/next-cache-components-adoption`
   - Bundle size: `npx skills add vercel/next.js --skill next-bundle-optimizer`, then run `/next-bundle-optimizer`.
-- **PREFER** `npx next@canary upgrade --agent=latest` to let an agent run a full, verified upgrade.
-- Optional: `experimental.agentFeedback: true` lets agents draft bug reports to the Next.js team. You review them, and nothing is sent without your approval.
+- **SHOULD** use `npx next@canary upgrade --agent=latest` to let an agent run a full, verified upgrade.
+- `experimental.agentFeedback: true` lets agents draft bug reports to the Next.js team; nothing is sent without your approval. It isn't on the approved experimental flags list ([§1](#1-baseline-setup)), so record why in an ADR if you turn it on.
 
 ---
 
@@ -922,53 +964,54 @@ export async function POST(request: Request) {
 
 ## 20. Anti-patterns
 
-| Don't | Do instead |
-| --- | --- |
-| `'use client'` at the top of a page or layout | Push it to the interactive leaf component |
-| Fetch in `useEffect` | Fetch in a Server Component, or pass a promise and `use()` it |
-| `fetch('/api/…')` from a Server Component | Call the DAL function directly |
-| Sequential `await`s for independent data | `Promise.all` or separate `<Suspense>` boundaries |
-| `await params` at the top of a layout | Pass the promise down and await inside `<Suspense>` |
-| `cookies()` / `headers()` without `<Suspense>` | Wrap the reading component in `<Suspense>` |
-| `'use cache'` without `cacheLife` | Always set a profile |
-| Auth check inside a `'use cache'` function | Check auth first, then call the cached function |
-| Caching live data (stock, availability, prices at checkout) for hours | Stream it uncached, or use `cacheLife('seconds')` |
-| `revalidateTag('x')` (one argument) | `revalidateTag('x', 'max')` or `updateTag('x')` |
-| `unstable_cache` | `'use cache'` + `cacheLife` + `cacheTag` |
-| `export const dynamic` / `revalidate` / `runtime` with Cache Components | `'use cache'`, `cacheLife`, `<Suspense>` |
-| Auth only in `proxy.ts` or a layout | Auth + authorization in every action, handler and DAL function |
-| Returning DB rows from a Server Action | Return `{ ok }` or field errors only |
-| Passing whole DB records to Client Components | Pass DTOs with only the needed fields |
-| `redirect()` inside `try/catch` | Call it outside the `try`, or `unstable_rethrow` |
-| `Promise.all` of Server Actions on the client | One action that does the parallel work |
-| Using Server Actions to load data | Server Components |
-| `middleware.ts` | `proxy.ts` |
-| DB queries in `proxy.ts` | Optimistic cookie check only |
-| `<a href="/internal">` | `<Link href="/internal">` |
-| `<Image priority>` | `loading="eager"` or `fetchPriority="high"` |
-| `images.domains` | `images.remotePatterns` |
-| `reset()` in `error.tsx` | `retry()` |
-| `NEXT_PUBLIC_` on a secret | Server-only env var read by the DAL |
-| Rewrite/redirect host built from request input | Fixed hosts, allowlisted paths |
-| Measuring speed with `next dev` | `next build && next start` |
+| Don't | Do instead | Section |
+| --- | --- | --- |
+| `'use client'` at the top of a page or layout | Push it to the interactive leaf component | [§3](#3-server-and-client-components) |
+| Fetch in `useEffect` | Fetch in a Server Component, or pass a promise and `use()` it | [§6](#6-data-fetching) |
+| `fetch('/api/…')` from a Server Component | Call the DAL function directly | [§6](#6-data-fetching) |
+| Sequential `await`s for independent data | `Promise.all` or separate `<Suspense>` boundaries | [§6](#6-data-fetching) |
+| `await params` at the top of a layout | Pass the promise down and await inside `<Suspense>` | [§4](#4-rendering-model-cache-components) |
+| `cookies()` / `headers()` without `<Suspense>` | Wrap the reading component in `<Suspense>` | [§4](#4-rendering-model-cache-components) |
+| `'use cache'` without `cacheLife` | Always set a profile | [§5](#5-caching-and-revalidation) |
+| Auth check inside a `'use cache'` function | Check auth first, then call the cached function | [§5](#5-caching-and-revalidation) |
+| Caching live data (stock, availability, prices at checkout) for hours | Stream it uncached, or use `cacheLife('seconds')` | [§5](#5-caching-and-revalidation) |
+| `revalidateTag('x')` (one argument) | `revalidateTag('x', 'max')` or `updateTag('x')` | [§5](#5-caching-and-revalidation) |
+| `unstable_cache` | `'use cache'` + `cacheLife` + `cacheTag` | [§5](#5-caching-and-revalidation) |
+| `export const dynamic` / `revalidate` / `runtime` with Cache Components | `'use cache'`, `cacheLife`, `<Suspense>` | [§4](#4-rendering-model-cache-components) |
+| Auth only in `proxy.ts` or a layout | Auth + authorization in every action, handler and DAL function | [§8.1](#81-authentication-and-authorization) |
+| Returning DB rows from a Server Action | Return `{ ok }` or field errors only | [§7](#7-mutations-and-server-actions) |
+| Passing whole DB records to Client Components | Pass DTOs with only the needed fields | [§3](#3-server-and-client-components) |
+| `redirect()` inside `try/catch` | Call it outside the `try`, or `unstable_rethrow` | [§7](#7-mutations-and-server-actions) |
+| `Promise.all` of Server Actions on the client | One action that does the parallel work | [§7](#7-mutations-and-server-actions) |
+| Using Server Actions to load data | Server Components | [§7](#7-mutations-and-server-actions) |
+| `middleware.ts` | `proxy.ts` | [§10](#10-proxy-proxyts) |
+| DB queries in `proxy.ts` | Optimistic cookie check only | [§10](#10-proxy-proxyts) |
+| `<a href="/internal">` | `<Link href="/internal">` | [§9](#9-routing-and-navigation) |
+| `<Image priority>` | `loading="eager"` or `fetchPriority="high"` | [§12](#12-performance-and-assets) |
+| `images.domains` | `images.remotePatterns` | [§8.6](#86-headers-csp-and-images) |
+| `reset()` in `error.tsx` | `retry()` | [§11](#11-error-handling) |
+| `NEXT_PUBLIC_` on a secret | Server-only env var read by the DAL | [§8.3](#83-preventing-data-leaks) |
+| Rewrite/redirect host built from request input | Fixed hosts, allowlisted paths | [§8.7](#87-rewrites-and-redirects) |
+| Measuring speed with `next dev` | `next build && next start` | [§12](#12-performance-and-assets) |
 
-## PR checklist
+## 21. PR checklist
 
 - [ ] No new `'use client'` higher than needed; Client Component props are minimal DTOs.
 - [ ] Every new `cookies()` / `headers()` / `searchParams` / uncached fetch is inside `<Suspense>` or cached.
 - [ ] Every `'use cache'` has `cacheLife`, and `cacheTag` where writes can change the data.
 - [ ] No auth checks inside cached functions; no per-user data in a shared cache.
-- [ ] Every new Server Action and Route Handler validates input, checks auth and ownership, and returns minimal data.
+- [ ] Every new Server Action and Route Handler checks authentication and authorization (directly or through the DAL), validates input, checks ownership, and returns minimal data.
 - [ ] Mutations call `updateTag` / `revalidateTag(tag, 'max')` / `revalidatePath` / `refresh` as appropriate, before any `redirect()`.
-- [ ] No new Instant Insights warnings in the dev overlay (or `instant = false` on purpose).
+- [ ] No new Instant Insights warnings (checked via the dev overlay, the `next dev` log, or the DevTools MCP's `get_errors`), or `instant = false` set on purpose.
 - [ ] Independent data loads run in parallel.
 - [ ] Images use `next/image` with `sizes`; the LCP image is `loading="eager"` or `fetchPriority="high"`.
-- [ ] New routes have `error.tsx` / `not-found.tsx` handling where they can fail.
+- [ ] New route segments that fetch data, read dynamic params, or call a Server Action have `error.tsx`; missing records call `notFound()`.
 - [ ] No secrets in `NEXT_PUBLIC_` vars; `.env*` not committed.
+- [ ] No experimental flag beyond the approved list ([§1](#1-baseline-setup)) without an ADR.
 - [ ] `next typegen && tsc --noEmit`, lint, and `next build` pass.
 - [ ] Bundle size checked with `npx next analyze` for UI-heavy changes.
 
-## Sources
+## 22. Sources
 
 Official sources read for this file (2026-10-28):
 

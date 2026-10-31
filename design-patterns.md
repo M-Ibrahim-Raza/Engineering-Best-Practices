@@ -33,7 +33,7 @@ tx { … }                                       // one database transaction
 
 ---
 
-## Table of contents
+## Contents
 
 - [1. Core principles: when to use a pattern](#1-core-principles-when-to-use-a-pattern)
 - [2. SOLID, read the modern way](#2-solid-read-the-modern-way)
@@ -58,7 +58,7 @@ tx { … }                                       // one database transaction
 - [21. Working with AI coding agents](#21-working-with-ai-coding-agents)
 - [22. Decision guide](#22-decision-guide)
 - [23. Anti-patterns](#23-anti-patterns)
-- [24. Pre-PR checklist](#24-pre-pr-checklist)
+- [24. PR checklist](#24-pr-checklist)
 - [25. Sources](#25-sources)
 
 ---
@@ -910,7 +910,7 @@ Don't do any of these:
 
 ---
 
-## 24. Pre-PR checklist
+## 24. PR checklist
 
 - [ ] No new pattern, layer, interface or extension point without a problem that exists today. Anything significant has an ADR.
 - [ ] Business rules live in one place. No shared helper has gained a per-caller flag.

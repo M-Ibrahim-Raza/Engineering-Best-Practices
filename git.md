@@ -60,7 +60,7 @@ These rules are for anyone using Git and GitHub in a project that uses these bes
 18. [Working with AI coding agents](#18-working-with-ai-coding-agents)
 19. [Recovering from mistakes](#19-recovering-from-mistakes)
 20. [Anti-patterns](#20-anti-patterns)
-21. [Pre-PR checklist](#21-pre-pr-checklist)
+21. [PR checklist](#21-pr-checklist)
 22. [Sources](#22-sources)
 
 ---

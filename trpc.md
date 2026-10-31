@@ -1,18 +1,23 @@
 # tRPC Best Practices
 
 > **Baseline:** tRPC **11.19.0** (`@trpc/server`, `@trpc/client`, `@trpc/tanstack-react-query`, all on one version) · `@tanstack/react-query` 5.105.0 · Zod 4.6 · NestJS 12.3 (Express) · Next.js 16.4 App Router · React 19.3 · TypeScript 6.0 / 7.0
-> **Last researched:** 2026-10-28, from the tRPC docs and source, the agent skills the tRPC maintainers ship, GitHub releases and security advisories, and the npm registry (see [Sources](#24-sources)). Every code sample was type-checked against these versions with the strict `tsconfig` from [typescript.md](typescript.md), under TypeScript 6.0.3 and 7.0.2. Rules marked *(checked)* were also confirmed by running tRPC 11.19.0 or by reading the NestJS 12.3.2 source, not only the docs.
+> **Last researched:** 2026-10-28, from the tRPC docs and source, the agent skills the tRPC maintainers ship, GitHub releases and security advisories, and the npm registry (see [Sources](#24-sources)).
+> **Re-check when:** tRPC ships a new minor version: sections 1, 2, 10, 13, 16, 19 and 21.
+> **Related:** [nestjs.md](nestjs.md) (the API that serves tRPC), [tanstack-query.md](tanstack-query.md) (the cache tRPC's React integration runs on), [nextjs.md](nextjs.md) and [react.md](react.md) (Server Components, Suspense, the Data Access Layer), [typescript.md](typescript.md) (strict `tsconfig`, dates)
 
 ## How to use this file
 
-This file is a set of instructions for anyone writing tRPC code in this repo, human or AI agent. Follow the rules unless a decision recorded in the repo (an ADR, `CLAUDE.md`, or a ticket) says otherwise.
+These rules are for anyone writing tRPC code in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
 
-| Tag | Meaning |
-|---|---|
-| **MUST** / **MUST NOT** | Required / forbidden. Code that breaks it should not be merged. |
-| **SHOULD** / **SHOULD NOT** | The default. Deviating needs a one-line reason in the PR. |
-| **AVOID** | Don't do it unless there is a written justification. |
+| Keyword | Meaning |
+| --- | --- |
+| **MUST** / **MUST NOT** | Required or forbidden. Breaking it is a bug or blocks review. |
+| **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
+
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR. **tRPC's bundled agent skills are the one exception that goes the other way** (section 20): this file wins where they disagree, because they were written for tRPC 11.16 and some of their examples are wrong for 11.19.0.
+
+Every code sample in this file was type-checked against the baseline versions above, with the strict `tsconfig` from [typescript.md](typescript.md), under TypeScript 6.0.3 and 7.0.2. Rules marked *(checked)* go further: they were confirmed by running tRPC 11.19.0 or by reading the NestJS 12.3.2 source, not only by reading the docs.
 
 tRPC sits between files that already exist. Their rules still apply, and this file only adds what is specific to tRPC:
 
@@ -21,57 +26,82 @@ tRPC sits between files that already exist. Their rules still apply, and this fi
 - [nextjs.md](nextjs.md) and [react.md](react.md): Server Components first, Suspense, the Data Access Layer.
 - [typescript.md](typescript.md): the strict `tsconfig`, and dates as ISO strings plus `Temporal`.
 
-If this file and the tRPC docs for the installed version disagree, the docs win. Update this file in the same PR. If tRPC's bundled agent skills (section 20) disagree with this file, this file wins: they were written for 11.16, and some of their examples are wrong.
+**Notes on the examples:** examples use plain `string` IDs to stay short; real code uses branded IDs ([typescript.md §5.6](typescript.md#56-branded-types-for-ids-and-validated-values)).
 
----
+## Key rules
 
-## Table of contents
+- **MUST** create exactly one `initTRPC` instance per app, in `init.ts`, and never export `t` itself ([§1](#1-reference-setup), [§3](#3-where-trpc-runs-and-when-to-use-it)).
+- **MUST** put cross-cutting logic (auth, rate limits, error mapping) in base procedures in `init.ts` ([§4](#4-routers--procedures)).
+- **MUST** keep procedures thin: validate the input, call **one** service method, return its DTO ([§4](#4-routers--procedures)).
+- **MUST** use `z.strictObject()` for mutation inputs; query inputs follow [nestjs.md §6](nestjs.md#6-validation--dtos) ([§5](#5-input--output-validation)).
+- **MUST** set upper bounds on every input: string `.max()`, array `.max()`, number ranges, page sizes ([§5](#5-input--output-validation)).
+- **MUST** keep HTTP objects (`req`, `res`) out of the `Context` type ([§6](#6-context--middleware)).
+- **MUST** deny by default: start every procedure from `protectedProcedure` or stricter ([§7](#7-authentication--authorization)).
+- **MUST** check ownership in the service, not only roles in middleware ([§7](#7-authentication--authorization)).
+- **MUST** reimplement in tRPC what Nest guards do for REST: auth, rate limits, validation, error mapping ([§7](#7-authentication--authorization), [§15](#15-serving-trpc-from-nestjs-12)).
+- **MUST** throw domain errors from services and let `mapDomainErrors` translate them; never throw a plain `Error` for an expected failure ([§8](#8-errors)).
+- **MUST NOT** show `error.message` to users ([§8](#8-errors)).
+- **MUST** send moments as ISO strings plus an IANA time zone, and convert them to `Temporal` at each transport's boundary ([§9](#9-data-transformers--dates)).
+- **MUST** rate-limit in tRPC middleware; Nest's `ThrottlerGuard` doesn't run on tRPC routes ([§10](#10-batching-limits--abuse)).
+- **MUST** treat the tRPC proxy as the key factory for tRPC queries; never hand-write keys ([§13](#13-react--tanstack-query)).
+- **MUST NOT** rename or remove a procedure while a deployed client still calls it ([§4](#4-routers--procedures)).
 
-- [tRPC Best Practices](#trpc-best-practices)
-  - [How to use this file](#how-to-use-this-file)
-  - [Table of contents](#table-of-contents)
-  - [1. Reference setup](#1-reference-setup)
-  - [2. Versions \& packages](#2-versions--packages)
-  - [3. Where tRPC runs, and when to use it](#3-where-trpc-runs-and-when-to-use-it)
-  - [4. Routers \& procedures](#4-routers--procedures)
-  - [5. Input \& output validation](#5-input--output-validation)
-  - [6. Context \& middleware](#6-context--middleware)
-  - [7. Authentication \& authorization](#7-authentication--authorization)
-  - [8. Errors](#8-errors)
-  - [9. Data transformers \& dates](#9-data-transformers--dates)
-  - [10. Batching, limits \& abuse](#10-batching-limits--abuse)
-  - [11. Response caching](#11-response-caching)
-  - [12. Client links](#12-client-links)
-  - [13. React \& TanStack Query](#13-react--tanstack-query)
-  - [14. Next.js App Router](#14-nextjs-app-router)
-    - [Calling the NestJS API](#calling-the-nestjs-api)
-    - [When Next.js hosts tRPC](#when-nextjs-hosts-trpc)
-    - [Server Actions](#server-actions)
-  - [15. Serving tRPC from NestJS 12](#15-serving-trpc-from-nestjs-12)
-  - [16. Subscriptions](#16-subscriptions)
-  - [17. Types \& sharing between apps](#17-types--sharing-between-apps)
-  - [18. OpenAPI \& non-TypeScript clients](#18-openapi--non-typescript-clients)
-  - [19. Testing](#19-testing)
-  - [20. AI agent skills](#20-ai-agent-skills)
-  - [21. Upgrades, deprecations \& v12](#21-upgrades-deprecations--v12)
-  - [22. Anti-patterns](#22-anti-patterns)
-  - [23. Pre-PR checklist](#23-pre-pr-checklist)
-  - [24. Sources](#24-sources)
+## Contents
+
+1. [Reference setup](#1-reference-setup)
+2. [Versions & packages](#2-versions--packages)
+3. [Where tRPC runs, and when to use it](#3-where-trpc-runs-and-when-to-use-it)
+4. [Routers & procedures](#4-routers--procedures)
+5. [Input & output validation](#5-input--output-validation)
+6. [Context & middleware](#6-context--middleware)
+7. [Authentication & authorization](#7-authentication--authorization)
+8. [Errors](#8-errors)
+9. [Data transformers & dates](#9-data-transformers--dates)
+10. [Batching, limits & abuse](#10-batching-limits--abuse)
+11. [Response caching](#11-response-caching)
+12. [Client links](#12-client-links)
+13. [React & TanStack Query](#13-react--tanstack-query)
+14. [Next.js App Router](#14-nextjs-app-router)
+15. [Serving tRPC from NestJS 12](#15-serving-trpc-from-nestjs-12)
+16. [Subscriptions](#16-subscriptions)
+17. [Types & sharing between apps](#17-types--sharing-between-apps)
+18. [OpenAPI & non-TypeScript clients](#18-openapi--non-typescript-clients)
+19. [Testing](#19-testing)
+20. [AI agent skills](#20-ai-agent-skills)
+21. [Upgrades, deprecations & v12](#21-upgrades-deprecations--v12)
+22. [Anti-patterns](#22-anti-patterns)
+23. [PR checklist](#23-pr-checklist)
+24. [Sources](#24-sources)
 
 ---
 
 ## 1. Reference setup
 
-This is the canonical wiring that every rule below assumes. The NestJS API serves tRPC at `/api/trpc`, and the Next.js app calls it. Each file path starts with `api:` or `web:` to show which app it belongs to. Section 3 covers the other option, tRPC inside Next.js.
+This is the canonical wiring that every rule below assumes. The NestJS API serves tRPC at `/api/trpc`, and the Next.js app calls it. Section 3 covers the other option, tRPC inside Next.js.
+
+Each file path starts with `api:` or `web:` to show which app it belongs to: `api:` is the NestJS app's root (for example `apps/api`), and `web:` is the Next.js app's root (for example `apps/web`). `@/` is that app's own root import alias (`@/trpc/client` in the Next.js app means `apps/web/trpc/client.tsx`); it is not shared between the two apps. The files below, in the order they appear:
+
+| File | New or existing | What it is |
+|---|---|---|
+| `api: src/trpc/context.ts` | New | The `Context` type every procedure sees |
+| `api: src/trpc/init.ts` | New | `initTRPC`, base procedures, shared middleware |
+| `api: src/tasks/tasks.router.ts` | New | The feature router |
+| `api: src/trpc/app.router.ts` | New | Merges feature routers into `appRouter` |
+| `api: src/trpc/trpc.setup.ts` | New | Mounts the adapter on the Express app |
+| `api: src/app.setup.ts` | Modify | Calls `setupTrpc()` ([nestjs.md §1](nestjs.md#1-reference-bootstrap) has the full function) |
+| `web: trpc/client.tsx` | New | The browser tRPC client and provider |
+| `web: trpc/server.tsx` | New | The server-side client, for prefetching and Server Components |
+| `web: app/providers.tsx` | Modify | Mounts `TRPCReactProvider` ([tanstack-query.md §2](tanstack-query.md#2-reference-setup) has the full component) |
+| `web: lib/query/get-query-client.ts` | Modify | Adds one line to `retry()` ([tanstack-query.md §2](tanstack-query.md#2-reference-setup) has the full file) |
 
 ```ts
 // api: src/trpc/context.ts
-import type { BookingsService } from '../bookings/bookings.service.js';
+import type { TasksService } from '../tasks/tasks.service.js';
 import type { RateLimiter } from '../common/rate-limiter.js';
 
 export interface SessionUser {
   id: string;
-  role: 'customer' | 'staff' | 'admin';
+  role: 'member' | 'manager' | 'admin';
 }
 
 /**
@@ -82,11 +112,13 @@ export interface Context {
   user: SessionUser | null;
   clientIp: string | null;
   services: {
-    bookings: BookingsService;
+    tasks: TasksService;
     rateLimiter: RateLimiter;
   };
 }
 ```
+
+`RateLimiter` is the project's own rate-limiting service, shared with REST (section 10). If the project has none, create `src/common/rate-limiter.ts` with a `consume(key: string, opts: { points: number; windowSec: number }): Promise<boolean>` method, backed by Redis or an in-memory token bucket.
 
 ```ts
 // api: src/trpc/init.ts
@@ -105,6 +137,8 @@ export interface FlatZodError {
 export interface Meta {
   /** Roles allowed to call the procedure. Required by `authorizedProcedure`. */
   roles?: readonly SessionUser['role'][];
+  /** A stable name for `onError`'s `path`, for callers (such as `experimental_caller`-wrapped Server Actions) that have no HTTP path. */
+  span?: string;
 }
 
 const t = initTRPC
@@ -169,62 +203,63 @@ export const authorizedProcedure = protectedProcedure.use(function requireRole({
 `isDev` comes from `src/config/runtime.ts` (`export const isDev = process.env['NODE_ENV'] === 'development';`). `initTRPC` runs when the module is imported, before Nest's DI container exists, so it can't inject `ConfigService`. Keeping the read inside `src/config/` still follows [nestjs.md §8](nestjs.md#8-configuration).
 
 ```ts
-// api: src/bookings/bookings.router.ts
+// api: src/tasks/tasks.router.ts
 import { z } from 'zod';
 import { authorizedProcedure, protectedProcedure, router } from '../trpc/init.js';
 
-const bookingId = z.uuid();
+const taskId = z.uuid();
 const instant = z.iso.datetime({ offset: true }); // ISO 8601 string; the service converts it to Temporal
 const page = {
   limit: z.number().int().min(1).max(100).default(20),
   cursor: z.string().max(200).nullish(), // nullish, not optional: infinite queries send null
 };
 
-export const bookingRouter = router({
+export const taskRouter = router({
   byId: protectedProcedure
-    .input(z.strictObject({ id: bookingId }))
-    .query(({ ctx, input }) => ctx.services.bookings.getForUser(ctx.user, input.id)),
+    .input(z.strictObject({ id: taskId }))
+    .query(({ ctx, input }) => ctx.services.tasks.getForUser(ctx.user, input.id)),
 
   list: protectedProcedure
-    .input(z.strictObject({ status: z.enum(['upcoming', 'past', 'cancelled']).default('upcoming'), ...page }))
-    .query(({ ctx, input }) => ctx.services.bookings.listForUser(ctx.user, input)),
+    .input(z.strictObject({ status: z.enum(['todo', 'in_progress', 'done', 'cancelled']).default('todo'), ...page }))
+    .query(({ ctx, input }) => ctx.services.tasks.listForUser(ctx.user, input)),
 
   create: protectedProcedure
     .input(
       z
         .strictObject({
-          resourceId: z.uuid(),
-          startsAt: instant,
-          endsAt: instant,
+          projectId: z.uuid(),
+          title: z.string().trim().min(1).max(200),
+          scheduledAt: instant,
+          dueAt: instant,
           timeZone: z.string().min(1).max(64), // IANA zone, e.g. 'Europe/London'
           notes: z.string().trim().max(500).optional(),
         })
-        .refine((b) => Date.parse(b.endsAt) > Date.parse(b.startsAt), {
-          message: 'endsAt must be after startsAt',
-          path: ['endsAt'],
+        .refine((t) => Date.parse(t.dueAt) > Date.parse(t.scheduledAt), {
+          message: 'dueAt must be after scheduledAt',
+          path: ['dueAt'],
         }),
     )
-    .mutation(({ ctx, input }) => ctx.services.bookings.create(ctx.user, input)),
+    .mutation(({ ctx, input }) => ctx.services.tasks.create(ctx.user, input)),
 
   cancel: protectedProcedure
-    .input(z.strictObject({ id: bookingId, reason: z.string().trim().max(500).optional() }))
-    .mutation(({ ctx, input }) => ctx.services.bookings.cancel(ctx.user, input)),
+    .input(z.strictObject({ id: taskId, reason: z.string().trim().max(500).optional() }))
+    .mutation(({ ctx, input }) => ctx.services.tasks.cancel(ctx.user, input)),
 
-  // Staff only. The allowed roles sit next to the procedure, where reviewers see them.
-  listForResource: authorizedProcedure
-    .meta({ roles: ['staff', 'admin'] })
-    .input(z.strictObject({ resourceId: z.uuid(), ...page }))
-    .query(({ ctx, input }) => ctx.services.bookings.listForResource(input)),
+  // Managers and admins only. The allowed roles sit next to the procedure, where reviewers see them.
+  listForProject: authorizedProcedure
+    .meta({ roles: ['manager', 'admin'] })
+    .input(z.strictObject({ projectId: z.uuid(), ...page }))
+    .query(({ ctx, input }) => ctx.services.tasks.listForProject(input)),
 });
 ```
 
 ```ts
 // api: src/trpc/app.router.ts
 import { createCallerFactory, router } from './init.js';
-import { bookingRouter } from '../bookings/bookings.router.js';
+import { taskRouter } from '../tasks/tasks.router.js';
 
 export const appRouter = router({
-  booking: bookingRouter,
+  task: taskRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -236,7 +271,7 @@ export const createCaller = createCallerFactory(appRouter);
 import { Logger, type INestApplication } from '@nestjs/common';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { AuthService } from '../auth/auth.service.js';
-import { BookingsService } from '../bookings/bookings.service.js';
+import { TasksService } from '../tasks/tasks.service.js';
 import { RateLimiter } from '../common/rate-limiter.js';
 import type { Context } from './context.js';
 import { appRouter } from './app.router.js';
@@ -246,7 +281,7 @@ export function setupTrpc(app: INestApplication): void {
   // Singletons, resolved once at startup. Request-scoped providers need moduleRef.resolve() instead.
   const auth = app.get(AuthService);
   const services: Context['services'] = {
-    bookings: app.get(BookingsService),
+    tasks: app.get(TasksService),
     rateLimiter: app.get(RateLimiter),
   };
 
@@ -271,6 +306,8 @@ export function setupTrpc(app: INestApplication): void {
 }
 ```
 
+`AuthService.userFromRequest` is the project's own function that reads the signed-in user from a request, by whatever mechanism the REST API uses for the same request ([nestjs.md §10](nestjs.md#authentication--authorization)): a session cookie or a bearer token. Create it in `api: src/auth/auth.service.ts` if the project has none; tRPC's context (above) and NestJS's `JwtAuthGuard` should end up calling the same underlying check, so a user is never authenticated one way for REST and another way for tRPC.
+
 ```ts
 // api: src/app.setup.ts (excerpt; the full function is in nestjs.md §1)
 export function setupApp(app: INestApplication): INestApplication {
@@ -291,15 +328,26 @@ export function setupApp(app: INestApplication): INestApplication {
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { createTRPCClient, httpBatchLink, httpSubscriptionLink, loggerLink, splitLink } from '@trpc/client';
+import {
+  createTRPCClient,
+  httpBatchLink,
+  httpLink,
+  httpSubscriptionLink,
+  isNonJsonSerializable,
+  loggerLink,
+  splitLink,
+} from '@trpc/client';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import { useState, type ReactNode } from 'react';
-import type { AppRouter } from '@booking/api/trpc';
+import type { AppRouter } from '@acme/api/trpc';
 import { publicEnv } from '@/lib/env.public';
 
 export const { TRPCProvider, useTRPC, useTRPCClient } = createTRPCContext<AppRouter>();
 
 const url = `${publicEnv.NEXT_PUBLIC_API_URL}/api/trpc`;
+
+// The API is on another origin: every terminating link below sends the session cookie.
+const withCredentials: typeof fetch = (input, init) => fetch(input, { ...init, signal: init?.signal ?? null, credentials: 'include' });
 
 function makeTRPCClient() {
   return createTRPCClient<AppRouter>({
@@ -311,12 +359,16 @@ function makeTRPCClient() {
       splitLink({
         condition: (op) => op.type === 'subscription',
         true: httpSubscriptionLink({ url, eventSourceOptions: () => ({ withCredentials: true }) }),
-        false: httpBatchLink({
-          url,
-          maxItems: 10, // same as the server's maxBatchSize
-          maxURLLength: 2083, // split a batch before its GET URL gets too long
-          // The API is on another origin: send the session cookie.
-          fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? null, credentials: 'include' }),
+        false: splitLink({
+          // FormData, File and Blob inputs can't go through a JSON batch (section 5).
+          condition: (op) => isNonJsonSerializable(op.input),
+          true: httpLink({ url, fetch: withCredentials }),
+          false: httpBatchLink({
+            url,
+            maxItems: 10, // same as the server's maxBatchSize
+            maxURLLength: 2083, // split a batch before its GET URL gets too long
+            fetch: withCredentials,
+          }),
         }),
       }),
     ],
@@ -341,7 +393,7 @@ import 'server-only';
 import { createTRPCClient, httpLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { headers } from 'next/headers';
-import type { AppRouter } from '@booking/api/trpc';
+import type { AppRouter } from '@acme/api/trpc';
 import { env } from '@/data/env';
 import { getQueryClient } from '@/lib/query/get-query-client';
 
@@ -378,7 +430,7 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
 ```ts
 // web: lib/query/get-query-client.ts (one line added to retry() from tanstack-query.md §2)
 import { isTRPCClientError } from '@trpc/client';
-import type { AppRouter } from '@booking/api/trpc';
+import type { AppRouter } from '@acme/api/trpc';
 
 function retry(failureCount: number, error: Error) {
   if (environmentManager.isServer()) return false;
@@ -389,7 +441,7 @@ function retry(failureCount: number, error: Error) {
 }
 ```
 
-`@booking/api/trpc` is a type-only export of the API package (section 17).
+`@acme/api/trpc` is a type-only export of the API package (section 17). `env` (`@/data/env`, server-only) and `publicEnv` (`@/lib/env.public`, in `client.tsx` above) are the project's validated environment modules: `env` holds server-only variables such as `API_INTERNAL_URL`, and `publicEnv` holds the `NEXT_PUBLIC_*` ones the browser may read. Create them if the project has none, validated with Zod at startup — [nestjs.md §8](nestjs.md#8-configuration) shows the equivalent pattern for the API.
 
 ---
 
@@ -405,10 +457,12 @@ npm i --save-exact @trpc/server@11.19.0 @trpc/client@11.19.0 @trpc/tanstack-reac
 - **MUST** pin exact versions and keep every `@trpc/*` package on the **same** version in both apps. `@trpc/client` and `@trpc/tanstack-react-query` declare `@trpc/server` at the exact same version as a peer, and mismatched copies cause confusing type errors. In a workspace, pin them in one place (pnpm `catalog:` or npm `overrides`).
 - **MUST** run `@trpc/server` **≥ 11.8.0**. CVE-2025-68130 (high) is prototype pollution through FormData field names in `experimental_caller` / `experimental_nextAppDirCaller`, which can bypass authorization. With WebSockets, CVE-2025-43855 (high, fixed in 11.1.1) lets one bad `connectionParams` message crash the server. 11.19.0 includes both fixes.
 - **MUST** stay on **≥ 11.17.0** with React 19. Earlier versions let React 19 coerce tRPC's proxies while rendering (fixed in PR #7336).
-- **MUST** install from the `latest` dist-tag. **AVOID** `next` (stuck at 11.13.0 since March 2026) and `canary`.
-- **MUST NOT** use APIs that exist only in the docs on `main`: the `safe()` helper from `@trpc/client` and per-procedure `.errors()`. trpc.io already describes them, but no stable release has them: they first appear at git tag v11.20.0, which was never published to npm *(checked)*. Adopt them after a stable release ships them.
-- **MUST** use `@trpc/tanstack-react-query` for React. **AVOID** the classic `@trpc/react-query` and `@trpc/next` in new code (section 13).
-- Peer requirements: TypeScript ≥ 5.7.2 (6.0 and 7.0 both work, *(checked)*), `@tanstack/react-query` ≥ 5.80.3, React ≥ 18.2. The Fastify adapter needs Fastify 5. On Fastify 4 it can return empty responses.
+- **MUST** install from the `latest` dist-tag.
+- **SHOULD NOT** use the `next` dist-tag (stuck at 11.13.0 since March 2026) or `canary`.
+- **MUST NOT** use APIs that exist only in the docs on `main`: the `safe()` helper from `@trpc/client` and per-procedure `.errors()`. trpc.io already describes them, but as of 2026-10-28 no stable release has them: they first appear at git tag v11.20.0, which was never published to npm *(checked)*. Adopt them after a stable release ships them.
+- **MUST** use `@trpc/tanstack-react-query` for React.
+- **SHOULD NOT** use the classic `@trpc/react-query` and `@trpc/next` in new code (section 13).
+- Peer requirements as of 2026-10-28: TypeScript ≥ 5.7.2 (6.0 and 7.0 both work, *(checked)*), `@tanstack/react-query` ≥ 5.80.3, React ≥ 18.2. The Fastify adapter needs Fastify 5. On Fastify 4 it can return empty responses.
 - **SHOULD** group all `@trpc/*` updates into one Renovate or Dependabot PR, and read the release notes before merging (section 21).
 
 ---
@@ -439,22 +493,23 @@ npm i --save-exact @trpc/server@11.19.0 @trpc/client@11.19.0 @trpc/tanstack-reac
   ```
   src/
     trpc/
-      init.ts            # initTRPC, base procedures, shared middleware. The only file that sees `t`.
+      init.ts            # initTRPC, base procedures, shared middleware (including timing). The only file that sees `t`.
       context.ts         # the Context type
       app.router.ts      # appRouter, AppRouter type, createCaller
       trpc.setup.ts      # mounts the adapter in setupApp()
-      middleware/        # reusable middleware: rate-limit.ts, timing.ts
-    bookings/
-      bookings.service.ts
-      bookings.router.ts
-      bookings.router.spec.ts
+      middleware/        # middleware applied per-procedure, not baked into a base procedure: rate-limit.ts
+    tasks/
+      tasks.service.ts
+      tasks.router.ts
+      tasks.router.spec.ts
   ```
 
-- **MUST** nest feature routers under a noun namespace (`booking: bookingRouter`) and name procedures in camelCase (`byId`, `list`, `create`, `cancel`). The path (`booking.cancel`) is the contract the client calls.
-- **MUST** treat paths and inputs as a **versioned contract**. The API and the web app deploy separately, and an open browser tab keeps calling the old paths, so the shared `AppRouter` type can't protect you here. Add new procedures and optional fields. Remove or rename old ones only after no deployed client calls them.
+- **MUST** nest feature routers under a noun namespace (`task: taskRouter`) and name procedures in camelCase (`byId`, `list`, `create`, `cancel`). The path (`task.cancel`) is the contract the client calls.
+- **MUST** treat paths and inputs as a **versioned contract**. *Why:* the API and the web app deploy separately, and an open browser tab keeps calling the old paths, so the shared `AppRouter` type can't protect you here. Add new procedures and optional fields. Remove or rename old ones only after no deployed client calls them.
 - **MUST NOT** name a procedure `then`, `call` or `apply`. Router creation throws, because the client is built on JavaScript proxies.
-- **MUST NOT** reuse a key when combining routers (it throws `Duplicate key`). **SHOULD** nest routers (`router({ booking, resource })`) rather than flatten them with `t.mergeRouters()`.
-- **MUST** put cross-cutting logic (auth, rate limits, error mapping) in **base procedures** in `init.ts`. tRPC can't attach middleware to a whole router.
+- **MUST NOT** reuse a key when combining routers (it throws `Duplicate key`).
+- **SHOULD** nest routers (`router({ task, project })`) rather than flatten them with `t.mergeRouters()`.
+- **MUST** put cross-cutting logic (auth, rate limits, error mapping) in **base procedures** in `init.ts`. *Why:* tRPC can't attach middleware to a whole router.
 - **MUST** keep procedures thin: validate the input, call **one** service method, return its DTO. It is the same rule as for Nest controllers ([nestjs.md §4](nestjs.md#4-controllers--services)).
 - **MUST** return plain DTOs, never ORM entities or database rows. Everything a procedure returns is serialized to the browser.
 - **MUST** use `.query()` for reads and `.mutation()` for writes. Queries are sent as GET, so they can be prefetched, retried and cached. **MUST NOT** change state in a query.
@@ -462,7 +517,7 @@ npm i --save-exact @trpc/server@11.19.0 @trpc/client@11.19.0 @trpc/tanstack-reac
 - **MAY** load feature routers on demand with `lazy()` to cut cold starts on serverless hosts:
 
   ```ts
-  booking: lazy(() => import('../bookings/bookings.router.js').then((m) => m.bookingRouter)),
+  task: lazy(() => import('../tasks/tasks.router.js').then((m) => m.taskRouter)),
   ```
 
 ---
@@ -470,25 +525,40 @@ npm i --save-exact @trpc/server@11.19.0 @trpc/client@11.19.0 @trpc/tanstack-reac
 ## 5. Input & output validation
 
 - **MUST** give every procedure that takes input a Zod schema in `.input()`. tRPC validates before the handler runs. A failure returns 400 `BAD_REQUEST` with the field errors in `data.zodError` (section 8).
-- **MUST** use `z.strictObject()` for inputs, as in [nestjs.md §6](nestjs.md#6-validation--dtos). Unknown keys are rejected with a 400 *(checked)*.
+- **MUST** use `z.strictObject()` for every mutation input. Unknown keys are rejected with a 400 *(checked)*.
+- **SHOULD** follow [nestjs.md §6](nestjs.md#6-validation--dtos) for query inputs: `z.object()` is fine there, the same as the REST query schemas in that section.
 - **MUST** set upper bounds: string `.max()`, array `.max()`, number ranges, page sizes. Unbounded input is a denial-of-service vector.
 - **SHOULD NOT** use `z.coerce.*` in tRPC inputs. Unlike REST query strings, tRPC sends JSON, so numbers and booleans arrive with their real types. This is the one input rule that differs from nestjs.md.
-- **MUST** send moments as ISO strings (`z.iso.datetime({ offset: true })`) with the IANA time zone in a separate field, and convert them to `Temporal` in the service ([typescript.md §9](typescript.md#9-dates-and-times-important-for-bookings)). Compare instants with `Date.parse()` or `Temporal`, never as strings: offsets differ.
+- **MUST** send moments as ISO strings (`z.iso.datetime({ offset: true })`) with the IANA time zone in a separate field, and convert them to `Temporal` in the service ([typescript.md §9](typescript.md#9-dates-and-times)). Compare instants with `Date.parse()` or `Temporal`, never as strings: offsets differ.
 - **MUST** use `.nullish()`, not `.optional()`, for `cursor`. Infinite queries send `cursor: null` for the first page.
-- **MUST** know how chained `.input()` calls work. Each schema parses the **whole** raw input, and the results are merged. So a strict base schema rejects the keys that the procedure adds *(checked)*. Make a base procedure's schema `z.object()` and repeat its keys in the procedure's strict schema:
+- Each chained `.input()` call parses the **whole** raw input, and the results are shallow-merged. **MUST** give a base procedure's own schema `z.object()`, not `z.strictObject()`, and repeat its keys in each procedure's strict schema. *Why:* a strict base schema would reject the keys a later `.input()` call adds *(checked)*.
 
   ```ts
-  export const venueInput = z.object({ venueId: z.uuid() });
-  const venueProcedure = t.procedure.input(venueInput).use(({ input, next }) => next({ ctx: { venueId: input.venueId } }));
+  // api: src/trpc/procedures.ts (built on protectedProcedure from init.ts; never touches `t` directly)
+  import { z } from 'zod';
+  import { protectedProcedure } from './init.js';
 
-  rename: venueProcedure
-    .input(z.strictObject({ ...venueInput.shape, name: z.string().trim().min(1).max(100) }))
-    .mutation(({ ctx, input }) => ({ venueId: ctx.venueId, name: input.name })),
+  export const projectInput = z.object({ projectId: z.uuid() });
+
+  /** Narrows ctx.projectId for any procedure nested under a project. */
+  export const projectProcedure = protectedProcedure
+    .input(projectInput)
+    .use(({ ctx, input, next }) => next({ ctx: { ...ctx, projectId: input.projectId } }));
+  ```
+
+  ```ts
+  // api: src/projects/projects.router.ts (uses projectProcedure)
+  import { projectProcedure } from '../trpc/procedures.js';
+
+  rename: projectProcedure
+    .input(z.strictObject({ ...projectInput.shape, name: z.string().trim().min(1).max(100) }))
+    .mutation(({ ctx, input }) => ({ projectId: ctx.projectId, name: input.name })),
   ```
 
 - **SHOULD** derive input variants with `.pick()`, `.omit()`, `.partial()` and `.extend()` instead of redefining fields.
-- **SHOULD** map results to DTOs in the service. **MAY** add `.output()` as an allowlist when data comes from a loosely typed source (JSON columns, third-party APIs). A failed output check is a 500 (`Output validation failed`), not a 400.
-- **MUST** accept `FormData`, `File` or `Blob` only in **mutations**, and send them through `httpLink` (section 12). `httpBatchLink` can't carry them.
+- **SHOULD** map results to DTOs in the service.
+- **MAY** add `.output()` as an allowlist when data comes from a loosely typed source (JSON columns, third-party APIs). A failed output check is a 500 (`Output validation failed`), not a 400.
+- **MUST** accept `FormData`, `File` or `Blob` only in **mutations**, and send them through `httpLink` (section 12). *Why:* `httpBatchLink` can't carry them.
 - **SHOULD** upload files straight to object storage with a presigned URL that a mutation returns, instead of streaming them through tRPC.
 
 ---
@@ -497,30 +567,32 @@ npm i --save-exact @trpc/server@11.19.0 @trpc/client@11.19.0 @trpc/tanstack-reac
 
 - **MUST** keep HTTP objects (`req`, `res`) out of the `Context` type. The adapter builds the context from the request, and callers and tests build it directly (section 19).
 - **MUST** resolve the session once per HTTP request, in `createContext`. One batched request runs `createContext` once for all its calls, so put per-call work in middleware.
-- **MUST** resolve Nest providers once at startup with `app.get()` (section 1), not per request. **AVOID** request-scoped providers ([nestjs.md §5](nestjs.md#5-dependency-injection--scopes)). If one is unavoidable, resolve it with `moduleRef.resolve(Token, contextId)`.
+- **MUST** resolve Nest providers once at startup with `app.get()` (section 1), not per request.
+- **SHOULD NOT** use request-scoped providers ([nestjs.md §5](nestjs.md#5-dependency-injection--scopes)). If one is unavoidable, resolve it with `moduleRef.resolve(Token, contextId)`.
 - **MUST** `return` the result of `next()` from every middleware. A middleware that forgets it fails with `INTERNAL_SERVER_ERROR`.
 - **MUST** narrow the context by passing an object to `next({ ctx: { ... } })`. Downstream procedures then see the narrowed type, as `protectedProcedure` does with `ctx.user`.
 - **SHOULD** build policy as a chain of base procedures: `publicProcedure` → `protectedProcedure` → `authorizedProcedure`. Each one adds a check, and a procedure picks the strictest base it needs.
 - **SHOULD** put a procedure's policy in typed `.meta()` (roles, limits) and read it in middleware. `meta` is static per procedure, so every middleware sees it. Chained `.meta()` calls are shallow-merged.
 - **SHOULD** place auth middleware before `.input()`. Middleware runs in chain order, so anonymous callers are rejected before their input is parsed.
-- **SHOULD** use `.concat()` to share a partial procedure between tRPC instances (plugins, libraries). **AVOID** the deprecated `unstable_concat` and `experimental_standaloneMiddleware`.
-- **SHOULD** log every call's path, type, result and duration in one middleware (or with OpenTelemetry spans):
+- **SHOULD** use `.concat()` to share a partial procedure between tRPC instances (plugins, libraries).
+- **SHOULD NOT** use the deprecated `unstable_concat` and `experimental_standaloneMiddleware`.
+- **SHOULD** log every call's path, type, result and duration in one middleware (or with OpenTelemetry spans). Define it in `init.ts` itself, next to `mapDomainErrors`, and attach it to `publicProcedure` so every procedure is covered:
 
   ```ts
-  // api: src/trpc/middleware/timing.ts
-  import { Logger } from '@nestjs/common';
-  import { middleware } from '../init.js';
-
+  // api: src/trpc/init.ts (add next to mapDomainErrors; import Logger from '@nestjs/common')
   const logger = new Logger('tRPC');
 
-  export const timing = middleware(async ({ path, type, next }) => {
+  const timing = t.middleware(async ({ path, type, next }) => {
     const start = performance.now();
     const result = await next();
     logger.log('tRPC call', { path, type, ok: result.ok, durationMs: Math.round(performance.now() - start) });
     return result;
   });
+
+  export const publicProcedure = t.procedure.use(mapDomainErrors).use(timing);
   ```
 
+  *Why not a separate `middleware/timing.ts` file:* it would import `middleware` (or `t`) from `init.js` to define itself, but `init.ts` would also need to import `timing` from that file to attach it to `publicProcedure` — a circular import. Middleware that isn't attached to a base procedure, such as `rate-limit.ts` (section 10), has no such cycle: routers import it and `protectedProcedure` separately, and nothing in `init.ts` imports it back.
 - **MUST NOT** log `input`, tokens or personal data in middleware or `onError`. Log the path and IDs.
 
 ---
@@ -531,11 +603,11 @@ npm i --save-exact @trpc/server@11.19.0 @trpc/client@11.19.0 @trpc/tanstack-reac
 - **MUST** narrow `ctx.user` in the auth middleware (`next({ ctx: { user: ctx.user } })`). Otherwise every handler has to null-check it.
 - **MUST** throw `UNAUTHORIZED` (401) only for missing or invalid credentials, and `FORBIDDEN` (403) for "signed in, but not allowed". tRPC's own docs and skills mix the two up.
 - **MUST** make role checks deny by default. `authorizedProcedure` rejects a procedure that has no `.meta({ roles })` *(checked)*, so forgetting the roles fails closed.
-- **MUST** check ownership in the service (`getForUser(ctx.user, id)`), not only roles in middleware. A role check alone doesn't stop one customer from reading another customer's booking (IDOR).
-- **MUST** reimplement in tRPC what Nest guards do for REST. The global `JwtAuthGuard`, `ThrottlerGuard`, pipes, interceptors and exception filters **don't run** for routes mounted with `app.use()` (section 15).
-- **MUST** authenticate with the same session cookie as the REST API (`HttpOnly`, `Secure`, `SameSite=Lax`; [nestjs.md §10](nestjs.md#10-security)). Cross-origin, that takes a CORS allowlist with `credentials: true` on the API, plus `credentials: 'include'` on the client (section 1). **MUST NOT** use wildcard CORS.
-- **MUST** keep `setupTrpc()` after `enableCsrfProtection()` in `setupApp()`. The CSRF check (Sec-Fetch-Site / Origin) then also covers tRPC mutations *(checked in the NestJS 12.3.2 source)*. Queries are GET, so they must never change state (section 4).
-- **MUST** use bearer tokens only through the link's `headers()` function, which runs on every request. **MUST NOT** put a token in the URL. For SSE that includes `connectionParams` (section 16).
+- **MUST** check ownership in the service (`getForUser(ctx.user, id)`), not only roles in middleware. *Why:* a role check alone doesn't stop one user from reading another user's task — Insecure Direct Object Reference (IDOR): reading or changing another user's record by changing an ID.
+- **MUST** reimplement in tRPC what Nest guards do for REST. *Why:* the global `JwtAuthGuard`, `ThrottlerGuard`, pipes, interceptors and exception filters **don't run** for routes mounted with `app.use()` (section 15).
+- **MUST** authenticate the tRPC context the same way as the REST endpoints ([nestjs.md §10](nestjs.md#10-security)), whether that is a session cookie or a bearer token. With a cookie (`HttpOnly`, `Secure`, `SameSite=Lax`), cross-origin requests also need a CORS allowlist with `credentials: true` on the API, plus `credentials: 'include'` on the client (section 1). **MUST NOT** use wildcard CORS.
+- **MUST** keep `setupTrpc()` after `enableCsrfProtection()` in `setupApp()`, when the project authenticates with cookies. *Why:* the CSRF check (Sec-Fetch-Site / Origin) then also covers tRPC mutations *(checked in the NestJS 12.3.2 source)*. Queries are GET, so they must never change state (section 4).
+- **MUST** use bearer tokens only through the link's `headers()` function, which runs on every request. **MUST NOT** put a token in the URL, or in the `connectionParams` of a Server-Sent Events (SSE) subscription (section 16 explains why and what to do instead).
 
 ---
 
@@ -549,7 +621,7 @@ The error codes you will use most, and their HTTP status:
 | `UNAUTHORIZED` | 401 | No valid session |
 | `FORBIDDEN` | 403 | Signed in, not allowed |
 | `NOT_FOUND` | 404 | The resource doesn't exist, or the caller may not know it exists |
-| `CONFLICT` | 409 | The slot was taken, a concurrent edit |
+| `CONFLICT` | 409 | Another user already claimed the task, a concurrent edit |
 | `PRECONDITION_FAILED` / `PRECONDITION_REQUIRED` | 412 / 428 | Optimistic-concurrency version mismatch / missing |
 | `PAYLOAD_TOO_LARGE` | 413 | Body over `maxBodySize` |
 | `UNPROCESSABLE_CONTENT` | 422 | Valid input that breaks a business rule |
@@ -557,23 +629,23 @@ The error codes you will use most, and their HTTP status:
 | `INTERNAL_SERVER_ERROR` | 500 | Anything unexpected, including a thrown plain `Error` |
 | `SERVICE_UNAVAILABLE` | 503 | A dependency is down |
 
-- **MUST** throw domain errors from services ([nestjs.md §9](nestjs.md#9-error-handling)) and let `mapDomainErrors` (section 1) translate them. A `SlotTakenError` becomes a 409 with `data.errorCode: 'SLOT_TAKEN'` *(checked)*. Throw `TRPCError` directly only in tRPC code such as middleware.
+- **MUST** throw domain errors from services ([nestjs.md §9](nestjs.md#9-error-handling)) and let `mapDomainErrors` (section 1) translate them. A `TaskClaimedError` becomes a 409 with `data.errorCode: 'TASK_CLAIMED'` *(checked)*. Throw `TRPCError` directly only in tRPC code such as middleware.
 - **MUST NOT** throw a plain `Error` for an expected failure. It becomes a 500.
 - **MUST** hide the message of unexpected errors outside development, as the `errorFormatter` in section 1 does. tRPC sends `cause.message` to the client, and `isDev: false` only removes the stack. A thrown `new Error('db 10.0.0.3:5432 refused connection')` reached the client word for word in production mode *(checked)*.
 - **MUST** set `isDev` explicitly. The default is `NODE_ENV !== 'production'`, so a server started without `NODE_ENV` sends stack traces.
 - **MUST** pass `cause` when you wrap an error. It reaches `onError` and the logs, never the client.
 - **MUST** give every error a client can act on a stable `errorCode` (from `DomainError.code`). Clients branch on `data.code` and `data.errorCode`, never on the message.
 - **MUST** flatten Zod errors with `z.flattenError()`. tRPC's docs still use `error.cause.flatten()`, which Zod 4 deprecates. Type the result explicitly (`FlatZodError` in section 1): `error.cause` is a `ZodError` of unknown shape, so without the annotation the client sees `fieldErrors` typed as `{}` *(checked)*.
-- **SHOULD NOT** show `error.message` to users. For validation errors it is the raw Zod issue list as JSON. Map `data.code`, `data.errorCode` and `data.zodError` to UI text.
+- **MUST NOT** show `error.message` to users. *Why:* for validation errors it is the raw Zod issue list as JSON, and for others it can carry internal details (as the database example above shows). Map `data.code`, `data.errorCode` and `data.zodError` to UI text instead.
 - **MUST** log unexpected errors in the adapter's `onError`, only for `INTERNAL_SERVER_ERROR` (4xx responses aren't incidents), with the path and type, through the Nest `Logger` ([nestjs.md §12](nestjs.md#12-logging--observability)).
 - **SHOULD** read errors on the client through the typed `data`:
 
   ```tsx
   const trpc = useTRPC();
-  const create = useMutation(trpc.booking.create.mutationOptions());
+  const create = useMutation(trpc.task.create.mutationOptions());
   const error = create.error;
-  if (error?.data?.errorCode === 'SLOT_TAKEN') return <p>That slot was just taken. Pick another time.</p>;
-  const endsAtError = error?.data?.zodError?.fieldErrors.endsAt?.[0];
+  if (error?.data?.errorCode === 'TASK_CLAIMED') return <p>Someone just claimed that task.</p>;
+  const dueAtError = error?.data?.zodError?.fieldErrors.dueAt?.[0];
   ```
 
 - **SHOULD** narrow unknown errors with `isTRPCClientError<AppRouter>(error)` from `@trpc/client` (it is used in `retry()` in section 1).
@@ -582,11 +654,13 @@ The error codes you will use most, and their HTTP status:
 
 ## 9. Data transformers & dates
 
-- **SHOULD NOT** configure a data transformer (superjson, devalue). Plain JSON is the default, and this repo wants it:
-  - Moments travel as ISO strings plus an IANA time zone and become `Temporal` values in the service ([typescript.md §9](typescript.md#9-dates-and-times-important-for-bookings)), so a transformer buys nothing.
+On the wire, a moment is an ISO 8601 UTC string, plus an IANA time zone field where the local time matters — the same rule as REST ([nestjs.md §7](nestjs.md#7-response-serialization)). Services work with `Temporal` ([typescript.md §9](typescript.md#9-dates-and-times)), and each transport converts at its own boundary: the REST response schema converts for REST, and the procedure converts for tRPC.
+
+- **SHOULD NOT** configure a data transformer (superjson, devalue). Plain JSON is the default, and the project should keep it that way:
+  - Moments travel as ISO strings plus an IANA time zone and become `Temporal` values in the service ([typescript.md §9](typescript.md#9-dates-and-times)), so a transformer buys nothing.
   - Dehydrated TanStack Query state stays plain JSON ([tanstack-query.md §13](tanstack-query.md#13-server-rendering-with-the-nextjs-app-router)).
   - `trpc-to-openapi`, MSW handlers and non-TypeScript clients can read the responses.
-- Without a transformer, the types stay honest: a procedure that returns a `Date` is typed `string` on the client *(checked)*. Return the ISO string yourself (`.toISOString()`), so the DTO type says what is sent.
+- **MUST** convert a `Temporal` value to an ISO string yourself before returning it from a procedure (for example `instant.toString()` for a `Temporal.Instant`), so the DTO type says what is actually sent. *Why:* without a transformer, tRPC's type-safe JSON serialization recognizes a fixed list of native types — `Date` becomes `string`, `Map` and `Set` become arrays, and so on — but it doesn't know about `Temporal` objects as of 11.19.0. A procedure that returns an unconverted `Temporal.Instant` is still typed `Temporal.Instant` on the client, even though the JSON value on the wire is a string.
 - **MUST**, if an ADR does add superjson, configure it in all three places, or responses fail with "Unable to transform response":
   - the server: `initTRPC.create({ transformer: superjson })`
   - **every** terminating link, including every `splitLink` branch: `httpBatchLink({ url, transformer: superjson })`. Since v11 it goes on the links, not on `createTRPCClient()`; passing it there is a compile error *(checked)*.
@@ -600,7 +674,7 @@ The error codes you will use most, and their HTTP status:
 - **MUST** set `maxBodySize` (bytes) on the Express and standalone adapters. It isn't in the docs, and its default is unlimited. The fetch adapter has no such option, so set the limit at the platform or reverse proxy.
 - **SHOULD** set `maxURLLength: 2083` on `httpBatchLink`. Batched queries are GET requests with the input in the URL, and long URLs are rejected by proxies (413/414).
 - **MAY** turn on method override (`allowMethodOverride: true` on the server, `methodOverride: 'POST'` on the link) only when query inputs are too large for a URL. All queries then become POST, which loses HTTP caching.
-- **MUST** rate-limit in tRPC middleware, because Nest's `ThrottlerGuard` doesn't run on tRPC routes. Use a shared store (Redis) when there is more than one instance, and tighter limits on sign-in and booking creation:
+- **MUST** rate-limit in tRPC middleware, because Nest's `ThrottlerGuard` doesn't run on tRPC routes. Use a shared store (Redis) when there is more than one instance, and tighter limits on sign-in and task creation:
 
   ```ts
   // api: src/trpc/middleware/rate-limit.ts
@@ -645,23 +719,14 @@ The error codes you will use most, and their HTTP status:
 
 - **MUST** end the link chain, and every `splitLink` branch, with a terminating link (`httpBatchLink`, `httpLink`, `httpSubscriptionLink` or `wsLink`).
 - **SHOULD** use `httpBatchLink` as the default terminating link (section 1).
-- **AVOID** `httpBatchStreamLink` unless a procedure streams (async-generator output) or slow calls must not hold up fast ones in a batch. It can't set response headers or cookies once streaming starts. Cross-origin, it sends a custom header that forces a CORS preflight; set `streamHeader: 'accept'` to avoid that.
+- **SHOULD NOT** use `httpBatchStreamLink` unless a procedure streams (async-generator output) or slow calls must not hold up fast ones in a batch. It can't set response headers or cookies once streaming starts. Cross-origin, it sends a custom header that forces a CORS preflight; set `streamHeader: 'accept'` to avoid that.
 - **MUST** route subscriptions to `httpSubscriptionLink` with `splitLink` (section 1). `httpBatchLink` throws on subscriptions.
-- **MUST** route `FormData` and binary inputs to `httpLink`:
-
-  ```ts
-  splitLink({
-    condition: (op) => isNonJsonSerializable(op.input), // from @trpc/client
-    true: httpLink({ url }),
-    false: httpBatchLink({ url, maxItems: 10, maxURLLength: 2083 }),
-  })
-  ```
-
+- **MUST** route `FormData` and binary inputs to `httpLink` with a nested `splitLink`, as the full chain in section 1 shows: the outer `splitLink` separates subscriptions, and the inner one separates non-JSON input from batched queries and mutations.
 - **SHOULD** put `loggerLink` first in the chain, on in development and for errors only in production (section 1).
-- **AVOID** `retryLink` together with TanStack Query. Retries belong to TanStack (`retry()` in section 1, [tanstack-query.md §16](tanstack-query.md#16-retries-network--polling)), and stacking both multiplies attempts.
+- **SHOULD NOT** use `retryLink` together with TanStack Query. *Why:* retries belong to TanStack (`retry()` in section 1, [tanstack-query.md §16](tanstack-query.md#16-retries-network--polling)), and stacking both multiplies attempts.
 - **MUST** send credentials per request: cookies with `credentials: 'include'`, or a token from the `headers()` function. **MUST NOT** read a token once when the client is created; it goes stale.
 - **MUST** write `signal: init?.signal ?? null` in a custom `fetch` under `exactOptionalPropertyTypes`. tRPC's `signal` can be `undefined`, and `RequestInit` only accepts `AbortSignal | null` *(checked)*.
-- **MUST NOT** call tRPC like REST (`fetch('/api/trpc/booking/123')`). The wire format is `GET /api/trpc/booking.byId?input=…` and `POST /api/trpc/booking.cancel`. Always go through the client. If you see `Unexpected token '<'`, the URL is wrong and returned HTML.
+- **MUST NOT** call tRPC like REST (`fetch('/api/trpc/task/123')`). The wire format is `GET /api/trpc/task.byId?input=…` and `POST /api/trpc/task.cancel`. Always go through the client. If you see `Unexpected token '<'`, the URL is wrong and returned HTML.
 
 ---
 
@@ -669,32 +734,33 @@ The error codes you will use most, and their HTTP status:
 
 Everything in [tanstack-query.md](tanstack-query.md) applies. tRPC only replaces how keys and query functions are built.
 
-- **MUST** use `@trpc/tanstack-react-query`: call `useTRPC()`, then pass `queryOptions()` / `mutationOptions()` to TanStack's own hooks. **AVOID** the classic integration (`createTRPCReact`, `trpc.x.useQuery()`, `useUtils()`). To migrate old code, run `npx @trpc/upgrade`, then `tsc --noEmit`, one component at a time.
+- **MUST** use `@trpc/tanstack-react-query`: call `useTRPC()`, then pass `queryOptions()` / `mutationOptions()` to TanStack's own hooks.
+- **SHOULD NOT** use the classic integration (`createTRPCReact`, `trpc.x.useQuery()`, `useUtils()`) in new code. To migrate old code, run `npx @trpc/upgrade`, then `tsc --noEmit`, one component at a time.
 - **MUST** use the app's one QueryClient. `TRPCReactProvider` takes it from `useQueryClient()` (section 1). **MUST NOT** create a second client for tRPC.
 - **MUST** treat the tRPC proxy as the key factory for tRPC procedures. It replaces the feature `queries.ts` from [tanstack-query.md §5](tanstack-query.md#5-query-options--code-organization). **MUST NOT** hand-write keys for tRPC queries.
 - **MUST** pick the right filter when invalidating:
 
   | Scope | Call |
   |---|---|
-  | Everything under a router | `queryClient.invalidateQueries(trpc.booking.pathFilter())` |
-  | Every input of one procedure | `queryClient.invalidateQueries(trpc.booking.list.pathFilter())` |
-  | One query | `queryClient.invalidateQueries(trpc.booking.byId.queryFilter({ id }))` |
-  | Read or write one entry | `queryClient.getQueryData(trpc.booking.byId.queryKey({ id }))` |
+  | Everything under a router | `queryClient.invalidateQueries(trpc.task.pathFilter())` |
+  | Every input of one procedure | `queryClient.invalidateQueries(trpc.task.list.pathFilter())` |
+  | One query | `queryClient.invalidateQueries(trpc.task.byId.queryFilter({ id }))` |
+  | Read or write one entry | `queryClient.getQueryData(trpc.task.byId.queryKey({ id }))` |
 
   **MUST NOT** call `queryFilter()` or `queryKey()` on a **router**. Routers only have `pathKey()` and `pathFilter()`. The official agent skill's `trpc.post.queryFilter()` example is a compile error in 11.19.0 *(checked)*.
-- **MUST** pass the **same input** to the server prefetch and the client hook. Schema defaults are applied on the server, not in the key, so `{}` and `{ status: 'upcoming' }` are different cache entries.
+- **MUST** pass the **same input** to the server prefetch and the client hook. Schema defaults are applied on the server, not in the key, so `{}` and `{ status: 'todo' }` are different cache entries.
 - **SHOULD** update the cache from a mutation through the `context` argument, as [tanstack-query.md §10](tanstack-query.md#10-mutations) does. It works the same with tRPC's `mutationOptions()`:
 
   ```tsx
   const trpc = useTRPC();
   const cancel = useMutation(
-    trpc.booking.cancel.mutationOptions({
-      onSuccess: (booking, _variables, _onMutateResult, context) => {
-        context.client.setQueryData(trpc.booking.byId.queryKey({ id: booking.id }), booking);
+    trpc.task.cancel.mutationOptions({
+      onSuccess: (task, _variables, _onMutateResult, context) => {
+        context.client.setQueryData(trpc.task.byId.queryKey({ id: task.id }), task);
         // Returning the promise keeps isPending true until the lists are fresh.
-        return context.client.invalidateQueries(trpc.booking.list.pathFilter());
+        return context.client.invalidateQueries(trpc.task.list.pathFilter());
       },
-      meta: { errorMessage: 'Could not cancel the booking.' },
+      meta: { errorMessage: 'Could not cancel the task.' },
     }),
   );
   ```
@@ -703,15 +769,15 @@ Everything in [tanstack-query.md](tanstack-query.md) applies. tRPC only replaces
 - **SHOULD** disable a query with `skipToken` instead of `enabled: false`; the input stays type-safe:
 
   ```tsx
-  const { data } = useQuery(trpc.booking.byId.queryOptions(bookingId ? { id: bookingId } : skipToken));
+  const { data } = useQuery(trpc.task.byId.queryOptions(taskId ? { id: taskId } : skipToken));
   ```
 
 - **MUST** build infinite queries with `infiniteQueryOptions()`. The procedure needs a `cursor` input (section 5). Use tRPC's `initialCursor` option, not `initialPageParam`:
 
   ```tsx
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
-    trpc.booking.list.infiniteQueryOptions(
-      { status: 'past', limit: 20 },
+    trpc.task.list.infiniteQueryOptions(
+      { status: 'done', limit: 20 },
       { getNextPageParam: (lastPage) => lastPage.nextCursor },
     ),
   );
@@ -730,22 +796,22 @@ Everything in [tanstack-query.md](tanstack-query.md) applies. tRPC only replaces
 This is the reference setup: `trpc/server.tsx` from section 1 talks to the API over HTTP.
 
 ```tsx
-// web: app/(app)/bookings/page.tsx (Server Component)
+// web: app/(app)/tasks/page.tsx (Server Component)
 import { HydrationBoundary, dehydrate, noop } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { getQueryClient } from '@/lib/query/get-query-client';
 import { trpc } from '@/trpc/server';
-import { BookingList, BookingListSkeleton } from './_components/booking-list';
+import { TaskList, TaskListSkeleton } from './_components/task-list';
 
-export default function BookingsPage() {
+export default function TasksPage() {
   const queryClient = getQueryClient();
   // Not awaited: the pending query is dehydrated and its data streams in (tanstack-query.md §13).
-  void queryClient.query(trpc.booking.list.queryOptions({ status: 'upcoming' })).catch(noop);
+  void queryClient.query(trpc.task.list.queryOptions({ status: 'todo' })).catch(noop);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <Suspense fallback={<BookingListSkeleton />}>
-        <BookingList />
+      <Suspense fallback={<TaskListSkeleton />}>
+        <TaskList />
       </Suspense>
     </HydrationBoundary>
   );
@@ -753,36 +819,37 @@ export default function BookingsPage() {
 ```
 
 ```tsx
-// web: app/(app)/bookings/_components/booking-list.tsx
+// web: app/(app)/tasks/_components/task-list.tsx
 'use client';
 
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 
-export function BookingList() {
+export function TaskList() {
   const trpc = useTRPC();
   // The same input as the server prefetch, so the key matches and nothing is fetched twice.
-  const { data } = useSuspenseQuery(trpc.booking.list.queryOptions({ status: 'upcoming' }));
+  const { data } = useSuspenseQuery(trpc.task.list.queryOptions({ status: 'todo' }));
   return (
     <ul>
-      {data.data.map((b) => (
-        <li key={b.id}>{b.startsAt}</li>
+      {data.data.map((task) => (
+        <li key={task.id}>{task.title}</li>
       ))}
     </ul>
   );
 }
 ```
 
-- **MUST** prefetch with `queryClient.query(trpc.x.queryOptions(...))` into a `getQueryClient()` client, and dehydrate that same client. This is the repo's pattern from [tanstack-query.md §13](tanstack-query.md#13-server-rendering-with-the-nextjs-app-router). **AVOID** the tRPC docs' `cache(makeQueryClient)` + `HydrateClient` + `prefetch()` helpers: they wrap the QueryClient in `React.cache()`, which tanstack-query.md rules out, and their `prefetchQuery` is deprecated in TanStack Query 5.105.
+- **MUST** prefetch with `queryClient.query(trpc.x.queryOptions(...))` into a `getQueryClient()` client, and dehydrate that same client. This is the project's pattern from [tanstack-query.md §13](tanstack-query.md#13-server-rendering-with-the-nextjs-app-router).
+- **SHOULD NOT** use the tRPC docs' `cache(makeQueryClient)` + `HydrateClient` + `prefetch()` helpers: they wrap the QueryClient in `React.cache()`, which tanstack-query.md rules out, and their `prefetchQuery` was deprecated in TanStack Query 5.102 (per [tanstack-query.md §20](tanstack-query.md#20-deprecated--removed-apis)).
 - **MUST** forward the session cookie from the server-side link and call the API's internal URL (`trpc/server.tsx` in section 1). A Server Component has no browser cookies.
-- **MUST** put pages that prefetch this way under a `<Suspense>` boundary (a `loading.tsx` works). Forwarding the cookie reads `headers()`, which makes the route dynamic ([nextjs.md §4](nextjs.md#4-rendering-model-cache-components)).
+- **MUST** put pages that prefetch this way under a `<Suspense>` boundary (a `loading.tsx` works). *Why:* forwarding the cookie reads `headers()`, which makes the route dynamic ([nextjs.md §4](nextjs.md#4-rendering-model-cache-components)).
 - **SHOULD** start prefetches without `await`, and `await` only data the route can't work without (tanstack-query.md §13).
-- **MUST NOT** render a query's data in the Server Component **and** read it with a hook in a Client Component; once the client refetches, the two drift apart. For server-only rendering, call `serverClient` directly: `await serverClient.booking.byId.query({ id })`.
+- **MUST NOT** render a query's data in the Server Component **and** read it with a hook in a Client Component; once the client refetches, the two drift apart. For server-only rendering, call `serverClient` directly: `await serverClient.task.byId.query({ id })`.
 - **MUST NOT** prefetch streamed (async-generator) queries on the server with this setup. On the server, the proxy's `queryClient` getter returns a throwaway client, and streamed data would land there *(checked in the source)*. Normal queries aren't affected.
 
 ### When Next.js hosts tRPC
 
-Use the same `init.ts`, routers and rules, with these files in place of `trpc.setup.ts` and the HTTP-based `trpc/server.tsx`:
+Use the same router and procedure rules (sections 4–8), with `init.ts` living at `web: trpc/init.ts` instead of `api: src/trpc/init.ts`. Its imports point at the Next.js app, not NestJS: the `DomainError` class comes from wherever the DAL throws it (for example `@/data/errors.ts`), and `isDev` from the Next.js app's own env module (`@/data/env`), not from `../config/runtime.js`. Everything else in `init.ts` — `initTRPC`, `mapDomainErrors`, the base procedures — is unchanged. Replace `trpc.setup.ts` and the HTTP-based `trpc/server.tsx` with these files:
 
 ```ts
 // web: app/api/trpc/[trpc]/route.ts
@@ -811,17 +878,17 @@ export { handler as GET, handler as POST };
 // web: trpc/context.ts (Next.js host)
 import 'server-only';
 import { getSessionUser, rateLimiter } from '@/data/auth';
-import * as bookings from '@/data/bookings';
+import * as tasks from '@/data/tasks';
 
 export interface SessionUser {
   id: string;
-  role: 'customer' | 'staff' | 'admin';
+  role: 'member' | 'manager' | 'admin';
 }
 
 export interface Context {
   user: SessionUser | null;
   clientIp: string | null;
-  services: { bookings: typeof bookings; rateLimiter: typeof rateLimiter };
+  services: { tasks: typeof tasks; rateLimiter: typeof rateLimiter };
 }
 
 /** Takes plain headers, so the route handler and Server Components can both call it. */
@@ -829,7 +896,7 @@ export async function createTRPCContext(opts: { headers: Headers }): Promise<Con
   return {
     user: await getSessionUser(opts.headers),
     clientIp: opts.headers.get('x-real-ip'), // set by your own proxy; never trust a raw X-Forwarded-For
-    services: { bookings, rateLimiter },
+    services: { tasks, rateLimiter },
   };
 }
 ```
@@ -861,29 +928,27 @@ export const caller = createCaller(createRscContext);
 - **MUST** call the router in-process from Server Components (`router` + `ctx` above). **MUST NOT** fetch your own `/api/trpc` from the server ([nextjs.md §6](nextjs.md#6-data-fetching)).
 - **SHOULD** have Server Components that render data themselves call the DAL directly ([nextjs.md §6](nextjs.md#6-data-fetching)). Use `caller` only when you want the procedure's exact middleware chain.
 - **MUST** keep `trpc/context.ts`, `trpc/server.tsx` and the DAL `server-only`. Client code imports only `type AppRouter`.
-- The client file is the same as in section 1, with `url: '/api/trpc'` and no cross-origin `fetch` override. Read `clientIp` from a header your own proxy sets.
+- **MUST** reuse the client file from section 1 as is, with two changes: `url: '/api/trpc'` (same-origin, so no cross-origin `fetch` override) and `clientIp` read from a header the project's own proxy sets.
 
 ### Server Actions
 
-- **SHOULD NOT** turn tRPC procedures into Server Actions with `experimental_caller` / `experimental_nextAppDirCaller`. The API is experimental, it had a high-severity CVE (fixed in 11.8.0), and it skips the adapter's `createContext`, limits and `onError`. For a mutation that must update the client cache, use `useMutation` (section 13). For a progressively enhanced form, use a plain Server Action that calls the DAL or service ([nextjs.md §7](nextjs.md#7-mutations-and-server-actions)).
-- If an ADR allows them anyway: **MUST** run ≥ 11.8.0, add the context through middleware (Server Actions don't go through `createContext`), and write `pathExtractor: ({ meta }) => meta?.span ?? ''`.
+- **SHOULD NOT** turn tRPC procedures into Server Actions with `experimental_caller` / `experimental_nextAppDirCaller`. *Why:* the API is experimental, it had a high-severity CVE (fixed in 11.8.0), and it skips the adapter's `createContext`, limits and `onError`. For a mutation that must update the client cache, use `useMutation` (section 13). For a progressively enhanced form, use a plain Server Action that calls the DAL or service ([nextjs.md §7](nextjs.md#7-mutations-and-server-actions)).
+- If an ADR allows them anyway: **MUST** run ≥ 11.8.0, add the context through middleware (Server Actions don't go through `createContext`), and write `pathExtractor: ({ meta }) => meta?.span ?? ''` so `onError` and the timing middleware (section 6) have a stable name in place of the missing HTTP path.
 
 ---
 
 ## 15. Serving tRPC from NestJS 12
 
 - **MUST** mount tRPC with `setupTrpc()` inside `setupApp()` (section 1), so `main.ts` and the e2e tests serve it the same way ([nestjs.md §1](nestjs.md#1-reference-bootstrap)).
-- **MUST** know the registration order, read from the NestJS 12.3.2 source *(checked)*:
-  - `app.use()` and `enableCors()` register Express middleware immediately, in call order. `useSecurityHeaders()` and `enableCsrfProtection()` register their shared hook the first time either is called. Call all of them before `setupTrpc()` and they run before tRPC.
-  - `setGlobalPrefix()` and `enableVersioning()` don't apply to `app.use()`. Write the full path (`/api/trpc`). tRPC has no URL versioning: evolve procedures compatibly instead (section 4).
-  - Everything registered during `app.init()` comes **after** tRPC: the JSON and urlencoded body parsers, `MiddlewareConsumer` middleware, guards, interceptors, pipes and exception filters. tRPC answers the request itself, so none of them runs for `/api/trpc`.
+- **MUST** call `app.useSecurityHeaders()`, `app.enableCsrfProtection()` and `app.enableCors()` before `setupTrpc()`. *Why*, read from the NestJS 12.3.2 source *(checked)*: `app.use()` and `enableCors()` register Express middleware immediately, in call order, and `useSecurityHeaders()` / `enableCsrfProtection()` register their shared hook the first time either is called — so calling them first means they run before tRPC does. Everything registered during `app.init()` instead, which includes the JSON and urlencoded body parsers, `MiddlewareConsumer` middleware, guards, interceptors, pipes and exception filters, runs **after** tRPC, however early you call it: tRPC answers the request itself, so none of those ever run for `/api/trpc`.
+- **MUST** write the full path (`/api/trpc`) when mounting tRPC. *Why:* `setGlobalPrefix()` and `enableVersioning()` don't apply to `app.use()`. tRPC has no URL versioning: evolve procedures compatibly instead (section 4).
 - **MUST** do in tRPC what those Nest layers would do: auth (section 7), validation (section 5), error mapping and logging (section 8), rate limits (section 10).
 - **MUST** set per-request context such as the request ID or the AsyncLocalStorage store (for example `nestjs-cls`) in `createContext` or a tRPC middleware. A `ClsModule` middleware mounted through Nest is registered at `init()`, so it never runs for tRPC requests.
 - Because Nest's body parsers run after tRPC, tRPC reads the raw request body itself, and `FormData` inputs work. If you call `app.useBodyParser()` before `setupTrpc()`, the JSON parser runs first; tRPC accepts a pre-parsed JSON body.
 - **MUST** define `appRouter` at module level, not as a property of an `@Injectable()` class. `AppRouter` then stays a plain type, and services reach procedures through the context.
 - **SHOULD** log through Nest's `Logger` (`onError` and the timing middleware), so tRPC logs share the format and level settings of the rest of the API.
-- **AVOID** `nestjs-trpc` (2.13.0). As of 2026-10-28 its peer range stops at NestJS 11, and NestJS 12 support is still an open issue and PR (#119, #122). Its code-generation CLI also ships without execute permission on macOS and arm64 Linux (#124). It replaces plain routers with decorators and a generated `AppRouter`, so moving later is a rewrite.
-- **AVOID** `@trpc12/experimental-nest` from the tRPC v12 branch. It is unreleased, REST-only, and depends on Effect (section 21).
+- **SHOULD NOT** use `nestjs-trpc` (2.13.0). As of 2026-10-28 its peer range stops at NestJS 11, and NestJS 12 support is still an open issue and PR (#119, #122). Its code-generation CLI also ships without execute permission on macOS and arm64 Linux (#124). It replaces plain routers with decorators and a generated `AppRouter`, so moving later is a rewrite.
+- **SHOULD NOT** use `@trpc12/experimental-nest` from the tRPC v12 branch. It is unreleased, REST-only, and depends on Effect (section 21).
 - **MUST** cover the tRPC mount in e2e tests: CORS, CSRF, security headers, limits and `createContext` only run through the real HTTP stack (section 19).
 
 ---
@@ -891,14 +956,14 @@ export const caller = createCaller(createRscContext);
 ## 16. Subscriptions
 
 ```ts
-// api: src/bookings/bookings.router.ts (continued; add `import { tracked } from '@trpc/server'`)
+// api: src/tasks/tasks.router.ts (continued; add `import { tracked } from '@trpc/server'`)
 onChange: protectedProcedure
   .input(z.strictObject({ lastEventId: z.string().max(200).nullish() }).optional())
   .subscription(async function* ({ ctx, input, signal }) {
     // Subscribe first, then replay history, so no event falls into the gap between the two.
-    const live = ctx.services.bookings.events(ctx.user, { signal });
+    const live = ctx.services.tasks.events(ctx.user, { signal });
     if (input?.lastEventId) {
-      for (const event of await ctx.services.bookings.eventsSince(ctx.user, input.lastEventId)) {
+      for (const event of await ctx.services.tasks.eventsSince(ctx.user, input.lastEventId)) {
         yield tracked(event.id, event);
       }
     }
@@ -918,23 +983,28 @@ sse: {
 ```
 
 ```tsx
-// web: a component that keeps booking lists live
+// web: a component that keeps task lists live
 const trpc = useTRPC();
 const queryClient = useQueryClient();
 useSubscription(
-  trpc.booking.onChange.subscriptionOptions(undefined, {
-    onData: () => void queryClient.invalidateQueries(trpc.booking.pathFilter()),
+  trpc.task.onChange.subscriptionOptions(undefined, {
+    onData: () => void queryClient.invalidateQueries(trpc.task.pathFilter()),
   }),
 );
 ```
 
-- **SHOULD** use Server-Sent Events (`httpSubscriptionLink`, section 1). They are plain HTTP and need no extra server. **AVOID** WebSockets unless you need low-latency traffic in both directions. If you do use them: `wsLink` plus `applyWSSHandler` with `keepAlive` turned on, and ≥ 11.1.1 (section 2).
+- **SHOULD** use SSE (`httpSubscriptionLink`, section 1). It is plain HTTP and needs no extra server.
+- **SHOULD NOT** use WebSockets unless you need low-latency traffic in both directions. If you do use them: `wsLink` plus `applyWSSHandler` with `keepAlive` turned on, and ≥ 11.1.1 (section 2).
 - **MUST** write subscriptions as `async function*` generators. `observable()` subscriptions are deprecated and removed in v12.
 - **MUST** pass `signal` to whatever the generator waits on, and release resources in `try … finally`. tRPC ends the generator when the client goes away.
-- **SHOULD** make streams resumable: `yield tracked(id, data)`, plus an optional `lastEventId` input. The browser's EventSource sends the last ID when it reconnects. **MUST** subscribe to live events **before** you read the history, or events in the gap are lost. **MUST NOT** use an empty string as the ID.
-- **MUST** keep the server's `ping.intervalMs` shorter than the client's `reconnectAfterInactivityMs`. **SHOULD** set `maxDurationMs` below the load balancer's idle timeout; the client reconnects and resumes from `lastEventId`.
-- **MUST** publish events through a shared pub/sub (for example Redis) when the API runs more than one instance. An in-process `EventEmitter` only reaches clients connected to the same instance.
-- **MUST** authenticate SSE with the session cookie (`withCredentials: true` cross-origin, as in section 1). **MUST NOT** put tokens in `connectionParams` for SSE: they are sent in the URL and end up in logs. If you truly need header auth, use an `EventSource` polyfill through the link's `EventSource` option.
+- **MUST** subscribe to live events **before** you read the history, whether or not the stream resumes. *Why:* otherwise events published in the gap between the two calls are lost.
+- **MUST NOT** use an empty string as a tracked event's ID. *Why:* the EventSource spec ignores an empty `id:` field, so the client's last-event-id never advances past it, and that event would be replayed on every reconnect.
+- **SHOULD** make streams resumable: `yield tracked(id, data)`, plus an optional `lastEventId` input, so the browser's EventSource can send the last ID back when it reconnects.
+- **MUST** keep the server's `ping.intervalMs` shorter than the client's `reconnectAfterInactivityMs`.
+- **SHOULD** set `maxDurationMs` below the load balancer's idle timeout; a resumable stream's client reconnects and resumes from `lastEventId`. A stream that isn't resumable loses whatever happened between the end of one connection and the start of the next, so keep `maxDurationMs` generous for those or make them resumable instead.
+- **MUST** publish events through a shared pub/sub (for example Redis) when the API runs more than one instance. *Why:* an in-process `EventEmitter` only reaches clients connected to the same instance.
+- **MUST** authenticate SSE the way section 7 says to authenticate everything else, adapted to what EventSource supports: a session cookie travels automatically (`withCredentials: true` cross-origin, as in section 1); a bearer token needs an `EventSource` polyfill through the link's `EventSource` option, so it can go through a header instead.
+- **MUST NOT** put tokens in `connectionParams` for SSE. *Why:* they are sent in the URL and end up in logs.
 - **SHOULD** serve the API over HTTP/2. Over HTTP/1.1, each open EventSource takes one of the browser's ~6 connections per origin.
 - **SHOULD** invalidate queries when an event arrives (as above) rather than patching cached data from events. It is simpler and can't drift.
 - **MUST NOT** run subscriptions in a Next.js route handler on a serverless host. Long-lived streams belong on the NestJS process.
@@ -943,18 +1013,23 @@ useSubscription(
 
 ## 17. Types & sharing between apps
 
-- **MUST** import only **types** from the API: `import type { AppRouter } from '@booking/api/trpc'`. A value import would put server code in the browser bundle. `verbatimModuleSyntax` ([typescript.md §2](typescript.md#2-tsconfigjson)) makes the `type` keyword mandatory.
-- **SHOULD** expose the type through a types-only export of the API's workspace package, and depend on it from the web app (`"@booking/api": "workspace:*"`):
+- **MUST** import only **types** from the API: `import type { AppRouter } from '@acme/api/trpc'`. A value import would put server code in the browser bundle. `verbatimModuleSyntax` ([typescript.md §2](typescript.md#2-tsconfigjson)) makes the `type` keyword mandatory.
+- **SHOULD** expose the type through a types-only export of the API's workspace package, and depend on it from the web app. In an npm workspace, use `"*"` as the version, not `"workspace:*"`: npm has no `workspace:` protocol, and resolves any range that matches a local workspace package to it directly *(checked against the npm CLI docs)*. (pnpm and Yarn both support `"workspace:*"`, if the project uses one of those instead.)
+
+  ```jsonc
+  // web: package.json (dependency on the API package)
+  { "dependencies": { "@acme/api": "*" } }
+  ```
 
   ```jsonc
   // api: package.json
   {
-    "name": "@booking/api",
+    "name": "@acme/api",
     "exports": { "./trpc": { "types": "./src/trpc/app.router.ts" } }
   }
   ```
 
-- The web app's type-check follows that import into the API's source, so those files must compile under the web `tsconfig` too. With NestJS 12 services in the `Context`, this works under TypeScript 6 and 7 *(checked, through an equivalent `tsconfig` path)*.
+- **MUST** keep the API's `src/trpc/` and everything its `Context` imports compiling under the web app's `tsconfig` too. *Why:* the web app's type-check follows the `AppRouter` import into the API's source. With NestJS 12 services in the `Context`, this works under TypeScript 6 and 7 *(checked, through an equivalent `tsconfig` path)*.
 - **MUST** pass `<AppRouter>` to `createTRPCClient` and `createTRPCContext`. **MUST NOT** write `createTRPCClient<any>` or cast to silence an import problem; fix the import.
 - **SHOULD** derive types from the router instead of redeclaring them:
 
@@ -963,8 +1038,8 @@ useSubscription(
 
   type RouterInputs = inferRouterInputs<AppRouter>;
   type RouterOutputs = inferRouterOutputs<AppRouter>;
-  export type Booking = RouterOutputs['booking']['byId'];
-  export type CreateBookingInput = RouterInputs['booking']['create'];
+  export type Task = RouterOutputs['task']['byId'];
+  export type CreateTaskInput = RouterInputs['task']['create'];
   ```
 
   For subscriptions, use `inferSubscriptionInput` / `inferSubscriptionOutput` (11.17+). Inside components, `inferInput` / `inferOutput` from `@trpc/tanstack-react-query` take a `trpc.x` node.
@@ -976,7 +1051,7 @@ useSubscription(
 
 - **SHOULD** serve external consumers from Nest REST controllers designed per [api-design.md](api-design.md) and documented with Swagger ([nestjs.md §15](nestjs.md#15-api-design--documentation)), calling the same services as the tRPC procedures.
 - **MAY** use `trpc-to-openapi` (3.3.x) when a few existing procedures must also be REST endpoints. It adds real routes from `.meta({ openapi: { method, path } })`, requires `.output()` schemas, and ignores transformers. Mount it next to the tRPC middleware in `setupTrpc()`.
-- **AVOID** `@trpc/openapi` for now. It is alpha (11.19.0-alpha) and describes tRPC's own wire format (`?input=` JSON, the `result.data` envelope), not resource-style REST. It must match `@trpc/server`'s exact version, and its `typescript <7` peer range conflicts with this repo's TypeScript 7.
+- **SHOULD NOT** use `@trpc/openapi` as of 2026-10-28. It is alpha (11.19.0-alpha) and describes tRPC's own wire format (`?input=` JSON, the `result.data` envelope), not resource-style REST. It must match `@trpc/server`'s exact version, and its `typescript <7` peer range conflicts with this file's TypeScript 7 baseline.
 - **MUST** run `oasdiff breaking` in CI on any OpenAPI document you publish ([api-design.md §8](api-design.md#8-versioning-and-evolution)). *Why:* external clients can't update in step with a breaking change, and a tool catches what a diff review misses.
 
 ---
@@ -984,63 +1059,65 @@ useSubscription(
 ## 19. Testing
 
 ```ts
-// api: src/bookings/bookings.router.spec.ts
+// api: src/tasks/tasks.router.spec.ts
 import { TRPCError, type inferProcedureInput } from '@trpc/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { BookingsService } from './bookings.service.js';
+import type { TasksService } from './tasks.service.js';
 import type { RateLimiter } from '../common/rate-limiter.js';
 import type { Context } from '../trpc/context.js';
 import { createCaller, type AppRouter } from '../trpc/app.router.js';
 
 function makeContext(overrides: Partial<Context> = {}): Context {
   return {
-    user: { id: 'u1', role: 'customer' },
+    user: { id: 'u1', role: 'member' },
     clientIp: null,
     services: {
-      bookings: { cancel: vi.fn() } as unknown as BookingsService,
+      tasks: { cancel: vi.fn() } as unknown as TasksService,
       rateLimiter: { consume: vi.fn(async () => true) } as unknown as RateLimiter,
     },
     ...overrides,
   };
 }
 
-describe('booking.cancel', () => {
+describe('task.cancel', () => {
   it('rejects anonymous callers', async () => {
     const caller = createCaller(makeContext({ user: null }));
-    const input: inferProcedureInput<AppRouter['booking']['cancel']> = { id: crypto.randomUUID() };
+    const input: inferProcedureInput<AppRouter['task']['cancel']> = { id: crypto.randomUUID() };
 
-    await expect(caller.booking.cancel(input)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    await expect(caller.task.cancel(input)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
   it('rejects unknown fields', async () => {
     const caller = createCaller(makeContext());
     // @ts-expect-error extra keys are rejected at runtime by z.strictObject
-    await expect(caller.booking.cancel({ id: crypto.randomUUID(), refund: true })).rejects.toBeInstanceOf(TRPCError);
+    await expect(caller.task.cancel({ id: crypto.randomUUID(), silent: true })).rejects.toBeInstanceOf(TRPCError);
   });
 });
 ```
 
 - **MUST** unit-test procedures through `createCaller` with a hand-built `Context` and fake services. No HTTP, no Nest testing module.
 - **MUST** test the security paths, not only the happy path: `UNAUTHORIZED` without a user, `FORBIDDEN` for the wrong role, `BAD_REQUEST` with `zodError` for bad input, and the `code` + `errorCode` that each domain error maps to.
-- **MUST** have e2e tests that boot the real `AppModule` with `setupApp()` ([nestjs.md §17](nestjs.md#17-testing)) and call tRPC over HTTP. Only that proves the mount order, CORS, CSRF, limits and `createContext`. Supertest rules (awaiting, assertions, test data, network mocks) are in [supertest.md](supertest.md). Without a transformer the wire format is plain JSON:
+- **MUST** have e2e tests that boot the real `AppModule` with `setupApp()` ([nestjs.md §17](nestjs.md#17-testing)) and call tRPC over HTTP. *Why:* only that proves the mount order, CORS, CSRF, limits and `createContext`. Supertest rules (awaiting, assertions, test data, network mocks) are in [supertest.md](supertest.md). Without a transformer the wire format is plain JSON:
 
   ```ts
-  await request(app.getHttpServer()).post('/api/trpc/booking.cancel').send({ id }).expect(401);
-  await request(app.getHttpServer()).get('/api/trpc/booking.byId').query({ input: JSON.stringify({ id }) }).expect(401);
+  await request(app.getHttpServer()).post('/api/trpc/task.cancel').send({ id }).expect(401);
+  await request(app.getHttpServer()).get('/api/trpc/task.byId').query({ input: JSON.stringify({ id }) }).expect(401);
   ```
 
-- **SHOULD** add type tests (`expectTypeOf`) for types other code relies on, such as `inferRouterOutputs<AppRouter>['booking']['byId']`.
-- **MUST** mock the network in component tests, not the hooks ([tanstack-query.md §19](tanstack-query.md#19-testing)). **AVOID** `vi.mock`-ing `useTRPC`.
-  - **AVOID** `msw-trpc` (2.0.1). It supports only MSW 2, doesn't support batching, and has open issues with the TanStack integration.
-  - **MAY** try `trpc-msw` (4.3.x, MSW 3). It is weeks old as of 2026-10-28, so evaluate it before relying on it.
-  - In a Next-hosted app, **MAY** give the provider a test client built on `unstable_localLink({ router, createContext })`, which runs the real router in-process. (The `unstable_` prefix is only naming; the API is supported.)
+- **SHOULD** add type tests (`expectTypeOf`) for types other code relies on, such as `inferRouterOutputs<AppRouter>['task']['byId']`.
+- **MUST** mock the network in component tests, not the hooks ([tanstack-query.md §19](tanstack-query.md#19-testing)).
+- **SHOULD NOT** use `vi.mock`-ing to fake `useTRPC`.
+- **SHOULD NOT** use `msw-trpc` (2.0.1). It supports only MSW 2, doesn't support batching, and has open issues with the TanStack integration.
+- **MAY** try `trpc-msw` (4.3.x, MSW 3) once it has had more time in use. As of 2026-10-28 it is weeks old, so evaluate it before relying on it.
+- **SHOULD** build the test client with a single `httpLink` (no batching, section 12) when neither tRPC-specific wrapper fits, so each call is one plain request, and mock it with ordinary MSW handlers against `/api/trpc/<path>`, the same way [tanstack-query.md §19](tanstack-query.md#19-testing) mocks REST calls.
+- In a Next-hosted app, **MAY** give the provider a test client built on `unstable_localLink({ router, createContext })`, which runs the real router in-process. (The `unstable_` prefix is only naming; the API is supported.) This only works when the router is a value the test can import directly, which is true for a Next-hosted app's own router but not for the API-hosted web app, which only ever imports `type AppRouter` (section 17).
 
 ---
 
 ## 20. AI agent skills
 
 - Since 11.14.1, tRPC's packages ship agent skills (`SKILL.md` files) through TanStack Intent. `npx @tanstack/intent@latest install` adds a block to `AGENTS.md` that tells agents to run `intent list` and `intent load <skill>`.
-- **MAY** enable them. Their decision trees and "common mistakes" lists are useful. But they were written for 11.16 and contradict this repo or 11.19.0 in places. **This file wins** where they disagree:
+- **MAY** enable them. Their decision trees and "common mistakes" lists are useful. But they were written for 11.16 and contradict this file or 11.19.0 in places. **This file wins** where they disagree:
 
   | The skills say | Do this instead |
   |---|---|
@@ -1059,7 +1136,7 @@ describe('booking.cancel', () => {
 ## 21. Upgrades, deprecations & v12
 
 - **MUST** upgrade all `@trpc/*` packages together, read every release note in between, and run `tsc` plus the test suite. Minor releases add options (such as `maxBatchSize` in 11.15) and fix behaviour.
-- Don't write these in new code, and replace them when you touch old code:
+- **SHOULD NOT** write these in new code; replace them when you touch old code:
 
   | Don't use | Use instead | Status |
   |---|---|---|
@@ -1080,36 +1157,45 @@ describe('booking.cancel', () => {
 
 ## 22. Anti-patterns
 
-Don't do any of these:
+Each item restates a rule from the body, with the same keyword.
 
-- Exporting `t`, or creating more than one `initTRPC` instance.
-- Procedures that start from `publicProcedure` without a stated reason.
-- Role checks that pass when `.meta({ roles })` is missing.
-- Relying on Nest guards, pipes, interceptors, filters or `MiddlewareConsumer` middleware for tRPC routes.
-- Throwing plain `Error`s for expected failures, or leaking `cause.message` from unexpected ones.
-- Leaving `isDev` to its default.
-- `z.object()` inputs where unknown keys should be rejected; strict base schemas in chained `.input()` calls.
-- Unbounded inputs; no `maxBatchSize`, `maxItems` or `maxBodySize`.
-- Changing state in a `.query()`.
-- Returning ORM entities, `Date`s, `Map`s or `BigInt`s instead of JSON DTOs.
-- Renaming or removing a procedure while deployed clients still call it.
-- Value imports of `appRouter` (or anything from the API) into the web app; `createTRPCClient<any>`.
-- A second QueryClient for tRPC, hand-written keys for tRPC queries, or `queryFilter()` on a router.
-- Fetching your own `/api/trpc` from a Next.js Server Component.
-- Adding superjson on the server but not on every link and the QueryClient.
-- Tokens in URLs or in SSE `connectionParams`; wildcard CORS.
-- `Cache-Control` on responses for signed-in users.
-- `observable()` subscriptions; in-process event emitters behind more than one instance.
-- `nestjs-trpc` on NestJS 12; tRPC v12 previews; `safe()` or `.errors()` before a stable release has them.
-- `retryLink` on top of TanStack Query retries.
+- **MUST NOT** export `t` from `init.ts` ([§1](#1-reference-setup)).
+- **MUST** create exactly one `initTRPC` instance per app ([§3](#3-where-trpc-runs-and-when-to-use-it)).
+- **MUST NOT** start a procedure from `publicProcedure` without a stated reason ([§7](#7-authentication--authorization)).
+- **MUST NOT** let a role check pass when `.meta({ roles })` is missing ([§7](#7-authentication--authorization)).
+- **MUST NOT** rely on Nest guards, pipes, interceptors, filters or `MiddlewareConsumer` middleware for tRPC routes ([§7](#7-authentication--authorization), [§15](#15-serving-trpc-from-nestjs-12)).
+- **MUST NOT** throw a plain `Error` for an expected failure ([§8](#8-errors)).
+- **MUST** hide the message of unexpected errors outside development ([§8](#8-errors)).
+- **MUST** set `isDev` explicitly, not leave it at its default ([§8](#8-errors)).
+- **MUST** use `z.strictObject()` for every mutation input ([§5](#5-input--output-validation)).
+- **MUST** give a base procedure's own schema `z.object()`, not `z.strictObject()`, in a chained `.input()` call ([§5](#5-input--output-validation)).
+- **MUST** set upper bounds on every input, and `maxBatchSize` / `maxItems` / `maxBodySize` on the server and client ([§5](#5-input--output-validation), [§10](#10-batching-limits--abuse)).
+- **MUST NOT** change state in a `.query()` ([§4](#4-routers--procedures)).
+- **MUST** return plain DTOs from procedures, never ORM entities or database rows ([§4](#4-routers--procedures)).
+- **MUST** convert a `Temporal` value to an ISO string before returning it, rather than returning it unconverted ([§9](#9-data-transformers--dates)).
+- **MUST NOT** rename or remove a procedure while a deployed client still calls it ([§4](#4-routers--procedures)).
+- **MUST** import only `type AppRouter` (or other API types) into the web app, never a value ([§17](#17-types--sharing-between-apps)).
+- **MUST NOT** write `createTRPCClient<any>` to silence an import problem ([§17](#17-types--sharing-between-apps)).
+- **MUST NOT** create a second QueryClient for tRPC, hand-write keys for tRPC queries, or call `queryFilter()` / `queryKey()` on a router ([§13](#13-react--tanstack-query)).
+- **MUST NOT** fetch your own `/api/trpc` from a Next.js Server Component ([§14](#14-nextjs-app-router)).
+- **MUST**, if an ADR adds superjson, configure it on the server, every terminating link, and the QueryClient together, not just one of the three ([§9](#9-data-transformers--dates)).
+- **MUST NOT** put a token in a link's URL ([§12](#12-client-links)), or in an SSE subscription's `connectionParams` ([§16](#16-subscriptions)).
+- **MUST NOT** use wildcard CORS ([§7](#7-authentication--authorization)).
+- **MUST NOT** add `Cache-Control` to responses for signed-in users ([§11](#11-response-caching)).
+- **MUST** write subscriptions as `async function*` generators, not `observable()` ([§16](#16-subscriptions)).
+- **MUST** publish events through a shared pub/sub when the API runs more than one instance, not an in-process `EventEmitter` ([§16](#16-subscriptions)).
+- **SHOULD NOT** use `nestjs-trpc` on NestJS 12 ([§15](#15-serving-trpc-from-nestjs-12)).
+- **MUST NOT** adopt the tRPC v12 previews ([§21](#21-upgrades-deprecations--v12)).
+- **MUST NOT** use `safe()` or `.errors()` before a stable release ships them ([§2](#2-versions--packages)).
+- **SHOULD NOT** use `retryLink` on top of TanStack Query's own retries ([§12](#12-client-links)).
 
 ---
 
-## 23. Pre-PR checklist
+## 23. PR checklist
 
 - [ ] Every new procedure starts from `protectedProcedure` (or stricter), or the PR explains `publicProcedure`.
 - [ ] Role-restricted procedures use `authorizedProcedure` with `.meta({ roles })`; ownership is checked in the service.
-- [ ] Every input is a bounded `z.strictObject()`; dates are ISO strings plus an IANA time zone; `cursor` is `.nullish()`.
+- [ ] Every input has upper bounds; every mutation input is `z.strictObject()`; dates are ISO strings plus an IANA time zone; `cursor` is `.nullish()`.
 - [ ] Procedures are thin, return DTOs, and reads are queries while writes are mutations.
 - [ ] No procedure was renamed or removed while a deployed client still calls it.
 - [ ] Services throw domain errors with a stable `code`; nothing new throws a plain `Error` on purpose.

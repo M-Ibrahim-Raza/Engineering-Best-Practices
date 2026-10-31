@@ -1,27 +1,65 @@
 # Python + Pydantic Best Practices
 
 > **Baseline:** Python **3.15** · Pydantic **2.14.2** · pydantic-settings **2.16** · uv · Ruff **0.17** · pyright **1.1.414** (strict) · pytest **9**
-> **Applies to:** the ML service (FastAPI + LangGraph), and any other Python in this repo.
 > **Last researched:** 2026-10-31, from the Python 3.15 docs, the Pydantic release notes, changelog and docs, the typing best-practices guide, the Google Python Style Guide, and PyPI (see [Sources](#16-sources)).
-> When Python or Pydantic ships a new minor version, re-check sections 0, 1, 3, 9 and 13.
+> **Re-check when:** Python or Pydantic ships a new minor version: sections 0, 1, 3, 9 and 13.
+> **Related:** [typescript.md](typescript.md) (for a project that also has a TypeScript codebase using the same ID and date patterns).
 
 ## How to use this file
 
-This file is a set of instructions for anyone writing Python in this repo, human or AI agent. Follow the rules unless a decision recorded in the repo (an ADR, `CLAUDE.md`, or a ticket) says otherwise.
+These rules are for anyone writing Python in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
-| **MUST** / **MUST NOT** | Required. Breaking it is a bug or a review blocker. |
-| **SHOULD** / **SHOULD NOT** | The default. If you deviate, leave a short comment saying why. |
-| **AVOID** | Don't, unless there is a clear, documented reason. |
+| **MUST** / **MUST NOT** | Required or forbidden. Breaking it is a bug or blocks review. |
+| **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-If a rule here conflicts with the official docs for a newer version, the docs win. Update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
 
-Notes on the examples:
+**Notes on the examples:**
 - They build on each other. Names defined in one section (`InputModel`, `ValueModel`, `Note`, `Money`, `DateRange`) are reused later.
 - Outside [§4](#4-docstrings-google-style) they usually skip docstrings to stay short. Real code follows §4.
 - Blocks marked `# ❌` show what not to do.
+- Examples use plain `int` or `str` IDs to stay short; a project that shares type patterns with TypeScript code may use branded IDs there too ([typescript.md §5.6](typescript.md#56-branded-types-for-ids-and-validated-values)).
+
+## Key rules
+
+- **MUST** target Python 3.15 only; no compatibility code for older versions ([§0](#0-versions-and-upgrades)).
+- **MUST** manage dependencies and run tools with uv ([§1](#1-project-setup-and-tooling)).
+- **MUST** use `Decimal` for money, never `float` ([§2.2](#22-everyday-rules)).
+- **MUST** use timezone-aware datetimes ([§2.2](#22-everyday-rules)).
+- **MUST** annotate every parameter and every return type ([§3.1](#31-rules)).
+- **MUST** use built-in generics (`list[str]`, `dict[str, int]`), not `typing.List`, `Dict`, `Optional` or `Union` ([§3.1](#31-rules)).
+- **MUST** write a docstring for every public module, class, function and method ([§4.1](#41-when-to-write-one)).
+- **MUST** comment why, not what ([§5](#5-comments)).
+- **MUST** use `BaseModel` where data crosses a trust boundary ([§6](#6-pydantic-models-and-config)).
+- **MUST** use `extra="forbid"` on input models ([§6](#6-pydantic-models-and-config)).
+- **MUST** give every union of models a `Literal` tag field and `Field(discriminator=...)` ([§9.1](#91-discriminated-unions)).
+- **MUST** parse JSON input with `Model.model_validate_json(raw)`, never `model_validate(json.loads(raw))` ([§10](#10-pydantic-parsing-typeadapter-errors)).
+- **MUST** create a `TypeAdapter` once, at module level, and reuse it ([§10](#10-pydantic-parsing-typeadapter-errors)).
+- **MUST** define one `Settings` class and read it only through its cached accessor ([§11](#11-pydantic-settings)).
+- **MUST** assert on the error `type` and `loc` in tests, never on message text ([§14](#14-testing)).
+
+## Contents
+
+0. [Versions and upgrades](#0-versions-and-upgrades)
+1. [Project setup and tooling](#1-project-setup-and-tooling)
+2. [General Python](#2-general-python)
+3. [Type hints](#3-type-hints)
+4. [Docstrings (Google style)](#4-docstrings-google-style)
+5. [Comments](#5-comments)
+6. [Pydantic: models and config](#6-pydantic-models-and-config)
+7. [Pydantic: fields and types](#7-pydantic-fields-and-types)
+8. [Pydantic: validators](#8-pydantic-validators)
+9. [Pydantic: unions, computed fields, serialization](#9-pydantic-unions-computed-fields-serialization)
+10. [Pydantic: parsing, TypeAdapter, errors](#10-pydantic-parsing-typeadapter-errors)
+11. [Pydantic: settings](#11-pydantic-settings)
+12. [Pydantic: performance](#12-pydantic-performance)
+13. [Deprecated or removed (don't use)](#13-deprecated-or-removed-dont-use)
+14. [Testing](#14-testing)
+15. [PR checklist](#15-pr-checklist)
+16. [Sources](#16-sources)
 
 ---
 
@@ -41,7 +79,7 @@ Notes on the examples:
 - **MUST** target Python 3.15 only. Use 3.15 features freely. **MUST NOT** add compatibility code: no `sys.version_info` checks, no `typing_extensions` backports, no `from __future__ import annotations`.
 - **MUST** stay on the latest patch of `pydantic` and `pydantic-settings`. Security fixes ship in patch releases (2.14.2 is one).
 - **MAY** use mypy instead of pyright: `mypy>=2.4` with `strict = true` and `plugins = ["pydantic.mypy"]`.
-- **MUST NOT** make ty (Astral) the only type checker. It is still beta (0.0.x).
+- **MUST NOT** make ty (Astral) the only type checker; as of 2026-10 it is beta (0.0.x).
 
 ---
 
@@ -99,7 +137,7 @@ uv run pytest
 
 - **MUST** use `snake_case` for functions, variables and modules, `PascalCase` for classes and type aliases, and `UPPER_SNAKE` for module constants.
 - **MUST** start module-private names with `_`, and end exception names with `Error`.
-- **SHOULD** name things for what they hold: `check_in`, not `d`. Booleans read as yes/no questions: `is_paid`, `has_balcony`.
+- **SHOULD** name things for what they hold: `due_date`, not `d`. Booleans read as yes/no questions: `is_billable`, `has_subtasks`.
 
 ### 2.2 Everyday rules
 
@@ -110,7 +148,9 @@ uv run pytest
 - **MUST** use timezone-aware datetimes: `datetime.now(UTC)`. **MUST NOT** call `datetime.now()` with no argument, or `utcnow()`.
 - **SHOULD** use `StrEnum` for fixed sets of string values such as statuses and channels.
 - **SHOULD** use `@dataclass(frozen=True, slots=True, kw_only=True)` for internal value objects that need no validation. Use Pydantic only where data crosses a boundary ([§6](#6-pydantic-models-and-config)).
-- **SHOULD** use `frozendict` (3.15) for constant mappings. It is not a `dict` subclass, so annotate parameters as `Mapping[K, V]` to accept both. pyright 1.1.414's bundled stub declares `frozendict.__init__` with no parameters, so every call with arguments reports `reportCallIssue`. Until that's fixed, suppress it on the line, as in the example below. mypy is not affected.
+- **SHOULD** use `frozendict` (3.15) for constant mappings.
+- **SHOULD** annotate parameters as `Mapping[K, V]` to accept both `frozendict` and `dict`. *Why:* `frozendict` is not a `dict` subclass.
+- **MUST** suppress `reportCallIssue` on each `frozendict(...)` call that passes arguments, as in the example below, while the project's pyright is 1.1.414. *Why:* that version's bundled stub declares `frozendict.__init__` with no parameters, so every such call is flagged. mypy is not affected.
 - **MUST** use `sentinel("NAME")` (3.15) for "argument not given" markers, never `object()`. In Pydantic models, use `pydantic.MISSING` instead ([§7](#7-pydantic-fields-and-types)).
 - **SHOULD** use `match` to branch on enums and data shapes. End it with `case _: assert_never(x)` when every case must be handled.
 - **SHOULD** use `re.prefixmatch()`, or `re.fullmatch()` when the whole string must match. `re.match()` is soft-deprecated in 3.15.
@@ -124,13 +164,14 @@ from enum import StrEnum
 from typing import Final, assert_never
 
 UNSET = sentinel("UNSET")
-# pyright 1.1.414 stub bug: frozendict.__init__ declares no parameters.
-ROOM_CAPACITY: Final = frozendict({"single": 1, "double": 2, "family": 4})  # pyright: ignore[reportCallIssue]
+# pyright 1.1.414 stub bug: frozendict.__init__ declares no parameters (see §2.2 above).
+TASK_PRIORITY_WEIGHT: Final = frozendict({"low": 1, "medium": 2, "high": 3})  # pyright: ignore[reportCallIssue]
 
 
-class BookingStatus(StrEnum):
-    PENDING = "pending"
-    CONFIRMED = "confirmed"
+class TaskStatus(StrEnum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
     CANCELLED = "cancelled"
 
 
@@ -140,13 +181,15 @@ class DateRange:
     end: date
 
 
-def status_label(status: BookingStatus) -> str:
+def status_label(status: TaskStatus) -> str:
     match status:
-        case BookingStatus.PENDING:
-            return "Awaiting payment"
-        case BookingStatus.CONFIRMED:
-            return "Confirmed"
-        case BookingStatus.CANCELLED:
+        case TaskStatus.TODO:
+            return "To do"
+        case TaskStatus.IN_PROGRESS:
+            return "In progress"
+        case TaskStatus.DONE:
+            return "Done"
+        case TaskStatus.CANCELLED:
             return "Cancelled"
         case _:
             assert_never(status)
@@ -155,11 +198,11 @@ def status_label(status: BookingStatus) -> str:
 _NOTES: dict[int, str | None] = {}
 
 
-def set_notes(booking_id: int, notes: str | UNSET | None = UNSET) -> None:
+def set_notes(task_id: int, notes: str | UNSET | None = UNSET) -> None:
     # None clears the notes. UNSET leaves them unchanged.
     if notes is UNSET:
         return
-    _NOTES[booking_id] = notes
+    _NOTES[task_id] = notes
 
 
 created_at = datetime.now(UTC)
@@ -194,13 +237,13 @@ def to_sql(query: Template) -> tuple[str, list[object]]:
     return "".join(parts), values
 
 
-ref = "BK-123456"
-statement, params = to_sql(t"SELECT * FROM bookings WHERE ref = {ref}")
+ref = "TASK-123456"
+statement, params = to_sql(t"SELECT * FROM tasks WHERE ref = {ref}")
 ```
 
 ```python
 # ❌
-cursor.execute(f"SELECT * FROM bookings WHERE ref = '{ref}'")  # SQL injection.
+cursor.execute(f"SELECT * FROM tasks WHERE ref = '{ref}'")  # SQL injection.
 ```
 
 ### 2.4 Lazy imports (PEP 810)
@@ -213,48 +256,50 @@ cursor.execute(f"SELECT * FROM bookings WHERE ref = '{ref}'")  # SQL injection.
 - **SHOULD** let `ruff check --fix` order them. Ruff's TID255 flags a lazy import that is used at module level, because it gets resolved immediately anyway.
 
 ```python
-# file: booking_manager/bookings/models.py
+# file: task_manager/tasks/models.py
 lazy import zipfile  # Only the export path uses it.
 
 from pydantic import BaseModel
 
-lazy from booking_manager.rooms.models import Room  # rooms.models imports this module too.
+lazy from task_manager.projects.models import Project  # projects.models imports this module too.
 
 
-class Booking(BaseModel):
+class Task(BaseModel):
     ref: str
-    room: Room
+    project: Project
 ```
 
 ### 2.5 Exceptions
 
-- **MUST** catch the narrowest exception that fits. **AVOID** `except Exception:` except at a top-level boundary that logs the error and returns an error response. **MUST NOT** use a bare `except:`.
+- **MUST** catch the narrowest exception that fits.
+- **SHOULD NOT** use `except Exception:`, except at a top-level boundary that logs the error and returns an error response.
+- **MUST NOT** use a bare `except:`.
 - **MUST** use `raise NewError(...) from err` when translating one error into another. **MAY** use `from None` to hide internal details that don't matter to the caller.
-- **MUST** write several exception types without parentheses when there is no `as`: `except TimeoutError, ConnectionError:` (PEP 758). With `as`, parentheses are still required: `except (TimeoutError, ConnectionError) as err:`.
+- **MUST** write several exception types without parentheses when there is no `as`: `except TimeoutError, ConnectionError:` (PEP 758). With `as`, parentheses are still required: `except (TimeoutError, ConnectionError) as err:`. *Why:* PEP 758 makes the parentheses optional when there's no `as`; writing them anyway adds noise, since both forms compile to the same thing.
 - **MUST NOT** use `return`, `break` or `continue` inside `finally` (PEP 765).
 - **SHOULD** use `except*` only for `ExceptionGroup`, for example errors from `asyncio.TaskGroup`.
-- **MUST** make domain errors subclass one project base class, `BookingManagerError`.
+- **MUST** make domain errors subclass one project base class, `AppError`: the project's base exception class (create it in `<package>/errors.py` if the project has none). *Why:* a common base lets callers catch every error the app raises on purpose with one `except AppError:`, without also catching unrelated exceptions.
 
 ```python
 import socket
 
 
-class BookingManagerError(Exception):
+class AppError(Exception):
     """Base class for every error this app raises on purpose."""
 
 
-class BookingNotFoundError(BookingManagerError, LookupError):
-    """No booking exists with the requested reference."""
+class TaskNotFoundError(AppError, LookupError):
+    """No task exists with the requested reference."""
 
 
 _ROWS: dict[str, dict[str, object]] = {}
 
 
-def load_booking_row(ref: str) -> dict[str, object]:
+def load_task_row(ref: str) -> dict[str, object]:
     try:
         return _ROWS[ref]
     except KeyError as err:
-        raise BookingNotFoundError(ref) from err
+        raise TaskNotFoundError(ref) from err
 
 
 def is_gateway_up(timeout: float) -> bool:
@@ -270,22 +315,23 @@ def is_gateway_up(timeout: float) -> bool:
 Logging rules live in [logging.md](logging.md) (§1 for every language, §2 for Loguru). The short version:
 
 - **MUST** use Loguru (`from loguru import logger`), configured once by `configure_logging()` ([logging.md §2.1](logging.md#21-setup)). **MUST NOT** use `print` or stdlib `logging.getLogger(__name__)` in app code. Stdlib loggers of libraries are routed into Loguru by `InterceptHandler`.
-- **MUST** write a constant message and pass data as keyword arguments: `logger.info("Booking confirmed", booking_ref=ref, nights=nights)`. **MUST NOT** pass an f-string together with keyword arguments ([logging.md §2.4](logging.md#24-messages)).
-- **MUST** set `backtrace=False` and `diagnose=False`, and **MUST NOT** log secrets, card data or full guest details.
+- **MUST** write a constant message and pass data as keyword arguments: `logger.info("Task created", task_ref=ref, hours=hours)`. **MUST NOT** pass an f-string together with keyword arguments ([logging.md §2.4](logging.md#24-messages)).
+- **MUST** set `backtrace=False` and `diagnose=False`.
+- **MUST NOT** log secrets, payment details, or more of a user's personal data than the log line needs: a name or an ID is fine, an address, phone number or payment detail is not.
 - **SHOULD** use `logger.exception(...)` inside `except` blocks, once, at the error boundary.
 
 ```python
 from loguru import logger
 
 
-def log_confirmation(ref: str, nights: int) -> None:
-    logger.info("Booking confirmed", booking_ref=ref, nights=nights)
+def log_task_created(ref: str, hours: int) -> None:
+    logger.info("Task created", task_ref=ref, hours=hours)
 ```
 
 ```python
 # ❌
-logger.info(f"Booking {ref} confirmed", nights=nights)  # Braces in the f-string can raise KeyError.
-print("confirmed", ref)                                  # Use the logger.
+logger.info(f"Task {ref} created", hours=hours)  # Braces in the f-string can raise KeyError.
+print("created", ref)                             # Use the logger.
 ```
 
 ### 2.7 asyncio
@@ -298,15 +344,15 @@ import asyncio
 from collections.abc import Sequence
 
 
-async def fetch_quote(room_id: int) -> Decimal:
+async def fetch_rate(project_id: int) -> Decimal:
     await asyncio.sleep(0)
-    return Decimal(room_id)
+    return Decimal(project_id)
 
 
-async def fetch_quotes(room_ids: Sequence[int]) -> list[Decimal]:
+async def fetch_rates(project_ids: Sequence[int]) -> list[Decimal]:
     async with asyncio.timeout(5), asyncio.TaskGroup() as tg:
-        tasks = [tg.create_task(fetch_quote(room_id)) for room_id in room_ids]
-    return [task.result() for task in tasks]
+        jobs = [tg.create_task(fetch_rate(project_id)) for project_id in project_ids]
+    return [job.result() for job in jobs]
 ```
 
 ---
@@ -315,38 +361,45 @@ async def fetch_quotes(room_ids: Sequence[int]) -> list[Decimal]:
 
 ### 3.1 Rules
 
-- **MUST** annotate every parameter and every return type, including private helpers and `-> None`. **MUST NOT** annotate `self` or `cls`. **SHOULD** annotate module and class variables when the value doesn't make the type obvious.
-- **MUST** use built-in generics: `list[str]`, `dict[str, int]`, `tuple[int, ...]`, `type[Booking]`. **MUST NOT** use `typing.List`, `Dict`, `Tuple`, `Type`, `Optional` or `Union`.
+- **MUST** annotate every parameter and every return type, including private helpers and `-> None`. **MUST NOT** annotate `self` or `cls`.
+- **SHOULD** annotate a module or class variable when its initial value doesn't show the full type, such as an empty collection or a value returned from a function call (`_cache: dict[str, int] = {}`). **MAY** leave a plain literal assignment unannotated (`DEFAULT_PAGE_SIZE = 20`).
+- **MUST** use built-in generics: `list[str]`, `dict[str, int]`, `tuple[int, ...]`, `type[Task]`. **MUST NOT** use `typing.List`, `Dict`, `Tuple`, `Type`, `Optional` or `Union`.
 - **MUST** write unions with `|`, with `None` last: `str | None`.
-- **SHOULD** give parameters the most general type that works (`Iterable`, `Sequence`, `Mapping` from `collections.abc`), and return concrete types (`list`, `dict`). Pydantic fields are the exception ([§12](#12-pydantic-performance)).
-- **MUST** use `object`, not `Any`, for "accepts anything". **AVOID** `Any`; use it only when the type system can't express the type, with a comment saying why.
-- **AVOID** union return types that force callers into `isinstance` checks. Raise an error instead, or return one type. `X | None` for "may be absent" is fine.
-- **MUST** write generics with PEP 695 syntax: `def f[T](...)`, `class C[T]:`, `[T: Bound]`, `[T = Default]`, `[**P]`. **MUST NOT** assign `TypeVar(...)`, `ParamSpec(...)` or use `Generic[T]`.
+- **SHOULD** give parameters the most general type that works (`Iterable`, `Sequence`, `Mapping` from `collections.abc`), and return concrete types (`list`, `dict`). Pydantic model fields are the exception: they default to concrete container types ([§12](#12-pydantic-performance)), not the general types this bullet recommends.
+- **MUST** use `object`, not `Any`, in a function signature for "accepts anything".
+- **SHOULD NOT** use `Any` elsewhere.
+- **MAY** use `Any`, with a comment saying why, when the type system can't express the type, or on a Pydantic model field whose value should pass through untouched ([§12](#12-pydantic-performance)).
+- **SHOULD NOT** use union return types that force callers into `isinstance` checks. Raise an error instead, or return one type. `X | None` for "may be absent" is fine.
+- **MUST** write generics with PEP 695 syntax: `def f[T](...)`, `class C[T]:`, `[T: Bound]`, `[T = Default]`, `[**P]`.
+- **MUST NOT** assign `TypeVar(...)`, `ParamSpec(...)` or use `Generic[T]`.
 - **MUST** declare type aliases with the `type` statement. **MUST NOT** use `TypeAlias` or a bare assignment.
 - **MUST NOT** use `from __future__ import annotations`, or put an annotation in quotes. Since 3.14, annotations are evaluated lazily (PEP 649/749). **MUST** read annotations at runtime with `annotationlib.get_annotations()`, not `__annotations__`.
 - **SHOULD** use `lazy from x import Y` instead of `if TYPE_CHECKING:` blocks.
-- **MUST** use `Self` for methods that return their own class, and `@override` on every overriding method. **SHOULD** use `Final` for constants, `ClassVar` for class-level attributes, `Literal` for fixed values, `LiteralString` for SQL fragments, and `Never` or `assert_never` for unreachable code.
+- **MUST** use `Self` for methods that return their own class, and `@override` on every overriding method.
+- **SHOULD** use `Final` for constants, `ClassVar` for class-level attributes, `Literal` for fixed values, `LiteralString` for SQL fragments, and `Never` or `assert_never` for unreachable code.
 - **SHOULD** use `TypeIs` (not `TypeGuard`) for narrowing functions, and `Protocol` for "anything with these methods".
-- **MAY** use `TypeForm[T]` (3.15) for a parameter that receives a type expression such as `int | None` or `list[Booking]`. `TypeAdapter(int | str).validate_python(x)` is now inferred as `int | str`.
+- **MAY** use `TypeForm[T]` (3.15) for a parameter that receives a type expression such as `int | None` or `list[Task]`. `TypeAdapter(int | str).validate_python(x)` is inferred as `int | str`.
 - **MUST** replace deprecated or removed APIs:
   - `typing.ByteString` is deprecated. Use `collections.abc.Buffer`, or `bytes | bytearray | memoryview`.
   - Keyword-style `NamedTuple("P", x=int)` is removed. Use class syntax.
-- **SHOULD** put one parameter per line, with a trailing comma, in long signatures; let ruff format do the layout. **SHOULD** put `*` after the first one or two parameters so the rest must be passed by keyword.
+- **SHOULD** put one parameter per line, with a trailing comma, when a signature doesn't fit on one line at the project's 100-character line length ([§1](#1-project-setup-and-tooling)); let ruff format do the layout.
+- **SHOULD** put `*` after the first one or two parameters so the rest must be passed by keyword.
 
 ### 3.2 Syntax reference
 
 ```python
 import functools
-from collections.abc import Callable, Iterable, Iterator, Mapping
-from typing import ClassVar, Literal, Protocol, Self, TypeIs, override
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from decimal import Decimal
+from typing import ClassVar, Final, Literal, Protocol, Self, TypeIs, override
 
 from loguru import logger
 
-type RoomId = int
+type ProjectId = int
 type Channel = Literal["web", "phone", "agent"]
 type JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None
 
-MAX_NIGHTS: Final = 30
+MAX_TAGS_PER_TASK: Final = 30
 
 
 class Priced(Protocol):
@@ -385,27 +438,27 @@ def logged[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     return wrapper
 
 
-def is_room_id(value: object) -> TypeIs[int]:
+def is_project_id(value: object) -> TypeIs[int]:
     return isinstance(value, int) and value > 0
 
 
 class RateCard:
     currency: ClassVar[str] = "EUR"
 
-    def __init__(self, rates: Mapping[RoomId, Decimal]) -> None:
+    def __init__(self, rates: Mapping[ProjectId, Decimal]) -> None:
         self._rates = dict(rates)
 
-    def with_rate(self, room_id: RoomId, rate: Decimal) -> Self:
-        return type(self)({**self._rates, room_id: rate})
+    def with_rate(self, project_id: ProjectId, rate: Decimal) -> Self:
+        return type(self)({**self._rates, project_id: rate})
 
 
 class PeakRateCard(RateCard):
     @override
-    def with_rate(self, room_id: RoomId, rate: Decimal) -> Self:
-        return super().with_rate(room_id, rate * Decimal("1.2"))
+    def with_rate(self, project_id: ProjectId, rate: Decimal) -> Self:
+        return super().with_rate(project_id, rate * Decimal("1.2"))
 
 
-def iter_room_ids(card_ids: Iterable[RoomId]) -> Iterator[RoomId]:
+def iter_project_ids(card_ids: Iterable[ProjectId]) -> Iterator[ProjectId]:
     yield from sorted(card_ids)
 ```
 
@@ -415,9 +468,9 @@ from __future__ import annotations                      # Not needed since 3.14.
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
 T = TypeVar("T")                                        # Use def f[T](...).
-RoomIds = List[int]                                     # Use: type RoomIds = list[int]
+ProjectIds = List[int]                                  # Use: type ProjectIds = list[int]
 def first(items: List[T]) -> Optional[T]: ...           # list[T] -> T | None
-def find(ref: "BookingRef") -> Union[Dict[str, Any], None]: ...  # Quoted annotation, Union.
+def find(ref: "TaskRef") -> Union[Dict[str, Any], None]: ...  # Quoted annotation, Union.
 def to_text(value: Any) -> str: ...                     # Use object.
 def label(status: None | str): ...                      # None goes last. Missing return type.
 ```
@@ -428,10 +481,10 @@ def label(status: None | str): ...                      # None goes last. Missin
 from typing import NotRequired, ReadOnly, TypedDict
 
 
-class RoomRow(TypedDict, closed=True):  # No keys beyond these.
+class ProjectRow(TypedDict, closed=True):  # No keys beyond these.
     id: ReadOnly[int]
     name: str
-    floor: NotRequired[int]
+    task_count: NotRequired[int]
 
 
 class TrackingTags(TypedDict, extra_items=str):  # Any extra key is allowed. Its value must be str.
@@ -460,14 +513,14 @@ class TrackingTags(TypedDict, extra_items=str):  # Any extra key is allowed. Its
 - **MUST** start with a one-line summary in imperative mood ("Calculate…", "Return…", not "Calculates…" or "This function…"). It ends with a period and fits on one line. If more is needed, add a blank line, then the details.
 - **MUST** order sections as `Args:`, `Returns:` or `Yields:`, `Raises:`. Each header ends with a colon. Entries are indented 4 spaces, and continuation lines 4 more.
 - **MUST NOT** repeat types in a docstring; the annotations are the source of truth. Write what the type can't say: units, ranges, side effects, edge cases.
-- **SHOULD** leave out `Returns:` for functions that return `None`. Under `Raises:`, list only the exceptions callers should handle.
+- **SHOULD** leave out `Returns:` for functions that return `None`. Under `Raises:`, list only exceptions a caller can sensibly catch and act on; leave out one that only signals a bug in the caller (such as `TypeError` for a wrong argument type).
 - **MUST** describe what callers see after any decorators are applied.
 
 | Kind | How to phrase it |
 | --- | --- |
 | Class | Say what an instance is. List public attributes under `Attributes:`. Constructor arguments that aren't attributes go under `Args:`. |
 | Exception | Say what the error means, not when it is raised. |
-| Property | Phrase it as an attribute ("Number of nights…"), not "Return…". |
+| Property | Phrase it as an attribute ("Number of days priced…"), not "Return…". |
 | Generator | `Yields:` describes one item. |
 | Async function | `Returns:` describes the value you get after `await`. |
 
@@ -476,7 +529,7 @@ class TrackingTags(TypedDict, extra_items=str):  # Any extra key is allowed. Its
 Module docstring:
 
 ```python
-"""Booking lifecycle: create, confirm and cancel bookings.
+"""Task lifecycle: create, assign and complete tasks.
 
 State changes live here. Prices are calculated in `pricing.py`.
 """
@@ -488,51 +541,51 @@ Function, generator and async function:
 from datetime import timedelta
 
 
-def quote_stay(
-    room_id: int,
-    stay: DateRange,
+def quote_task(
+    project_id: int,
+    work: DateRange,
     *,
     promo_code: str | None = None,
 ) -> Decimal:
-    """Calculate the total price for a stay, including taxes.
+    """Calculate the total cost for logged work, including tax.
 
-    Nightly rates come from the room's rate plan. A promo code discounts
-    the base rate only, never the taxes.
+    Hourly rates come from the project's rate card. A promo code discounts
+    the base rate only, never the tax.
 
     Args:
-        room_id: Room being booked.
-        stay: Check-in to check-out. The check-out night is not charged.
+        project_id: Project the work was logged against.
+        work: Start date to due date. The due date itself is not billed.
         promo_code: Promo code to apply. Unknown codes are ignored.
 
     Returns:
-        Total in the room's currency, rounded to 2 decimal places.
+        Total in the project's currency, rounded to 2 decimal places.
 
     Raises:
-        InvalidStayError: If the stay is shorter than one night.
+        InvalidWorkRangeError: If the range is shorter than one day.
     """
     ...
 
 
-def iter_nights(stay: DateRange) -> Iterator[date]:
-    """Yield each night of a stay in order.
+def iter_days(work: DateRange) -> Iterator[date]:
+    """Yield each day of a date range in order.
 
     Args:
-        stay: Stay to walk through.
+        work: Range to walk through.
 
     Yields:
-        Every night from check-in up to, but not including, check-out.
+        Every day from the start date up to, but not including, the due date.
     """
-    night = stay.start
-    while night < stay.end:
-        yield night
-        night += timedelta(days=1)
+    day = work.start
+    while day < work.end:
+        yield day
+        day += timedelta(days=1)
 
 
-async def send_confirmation(booking_ref: str) -> bool:
-    """Email the booking confirmation to the lead guest.
+async def send_task_update(task_ref: str) -> bool:
+    """Email the task update to its assignee.
 
     Args:
-        booking_ref: Booking to confirm.
+        task_ref: Task to notify about.
 
     Returns:
         True if the mail server accepted the message.
@@ -544,33 +597,33 @@ Class, property and exception:
 
 ```python
 class RateCalendar:
-    """Nightly rates for one room, keyed by date.
+    """Hourly rates for one project, keyed by date.
 
     Attributes:
-        room_id: Room the rates belong to.
+        project_id: Project the rates belong to.
         currency: ISO 4217 code shared by every rate.
 
     Args:
         rates: Starting rates. Copied, so later changes to it have no effect.
     """
 
-    def __init__(self, room_id: int, currency: str, rates: Mapping[date, Decimal]) -> None:
-        self.room_id = room_id
+    def __init__(self, project_id: int, currency: str, rates: Mapping[date, Decimal]) -> None:
+        self.project_id = project_id
         self.currency = currency
         self._rates = dict(rates)
 
     @property
-    def priced_nights(self) -> int:
-        """Number of nights that have a rate."""
+    def priced_days(self) -> int:
+        """Number of days that have a rate."""
         return len(self._rates)
 
-    def rate_for(self, night: date) -> Decimal | None:
-        """Return the rate for one night, or None if it isn't priced yet."""
-        return self._rates.get(night)
+    def rate_for(self, day: date) -> Decimal | None:
+        """Return the rate for one day, or None if it isn't priced yet."""
+        return self._rates.get(day)
 
 
-class RoomUnavailableError(BookingManagerError):
-    """The room is already booked for at least one requested night."""
+class ProjectArchivedError(AppError):
+    """The project no longer accepts new tasks."""
 ```
 
 ### 4.4 Pydantic models
@@ -585,35 +638,35 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class GuestContact(BaseModel):
-    """Contact details for the lead guest on a booking."""
+class AssigneeContact(BaseModel):
+    """Contact details for a task's assignee."""
 
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     full_name: Annotated[str, Field(min_length=1, max_length=200)]
-    """Name exactly as it appears on the guest's ID."""
+    """Name exactly as it appears in the team directory."""
 
     email: EmailStr
-    """Address that receives the confirmation email."""
+    """Address that receives task notifications."""
 ```
 
 ```python
 # ❌
-def quote_stay(room_id, stay):
+def quote_task(project_id, work):
     '''
     This function calculates the price.           <- Not imperative. Summary not on the first line.
 
     Args:
-        room_id (int): The room id.                <- Repeats the type. Says nothing new.
-        stay (DateRange): The stay.
+        project_id (int): The project id.          <- Repeats the type. Says nothing new.
+        work (DateRange): The work.
 
     Returns:
         Decimal: The price.
     '''
 
 
-class RoomUnavailableError(Exception):
-    """Raised when the room is booked."""          # Say what it means, not when it is raised.
+class ProjectArchivedError(Exception):
+    """Raised when the project is archived."""    # Say what it means, not when it is raised.
 ```
 
 ---
@@ -623,7 +676,7 @@ class RoomUnavailableError(Exception):
 - **MUST** comment **why**, not **what**. If a comment just restates the code, delete it. If code needs a "what" comment, rename things or pull the code out into a well-named function.
 - **MUST** put block comments on their own lines above the code, at the same indent, as `# ` followed by full sentences with a capital letter and a period.
 - **SHOULD** use inline comments sparingly: two spaces before the `#`, one space after it.
-- **MUST** reference a ticket in every TODO: `# TODO(DEV-1234): Describe the work.` Never a person's name, never "later".
+- **MUST** reference the ticket ID in every TODO, for example `# TODO(DEV-1234): Describe the work.` Never a person's name, never "later".
 - **MUST NOT** commit commented-out code; git keeps the history.
 - **MUST NOT** write banner or divider comments (`# ===== Helpers =====`). Split the module instead.
 - **MUST** name the exact rule in every suppression and give a reason, on the same line or on the line above if it won't fit. **MUST NOT** write a bare `# noqa` or `# type: ignore`.
@@ -632,7 +685,7 @@ class RoomUnavailableError(Exception):
   - `# pyright: ignore[reportCallIssue]  # Values come from env vars.`
 
 ```python
-DEPOSIT_RATE: Final = Decimal("0.20")  # Hotel policy: 20% is due at booking time.
+DEPOSIT_RATE: Final = Decimal("0.20")  # Company policy: 20% is due when a project starts.
 
 
 def handle_payment_webhook(event_id: str, processed: set[str]) -> None:
@@ -641,7 +694,7 @@ def handle_payment_webhook(event_id: str, processed: set[str]) -> None:
     if event_id in processed:
         return
     processed.add(event_id)
-    # TODO(DEV-1234): Refund the deposit when a booking is cancelled within 24 hours.
+    # TODO(DEV-1234): Refund the deposit when a project is cancelled within 24 hours.
 ```
 
 ```python
@@ -649,8 +702,8 @@ def handle_payment_webhook(event_id: str, processed: set[str]) -> None:
 # Check if event id is in processed.
 if event_id in processed:
     return
-# old_total = rate * nights * 1.2
-total = rate * nights  # multiply rate by nights
+# old_total = rate * hours * 1.2
+total = rate * hours  # multiply rate by hours
 # TODO: fix later
 # ========== Helpers ==========
 import vendor_sdk  # type: ignore
@@ -661,7 +714,7 @@ import vendor_sdk  # type: ignore
 ## 6. Pydantic: models and config
 
 - **MUST** use `BaseModel` where data crosses a trust boundary: API request and response bodies, webhooks, queue messages, files, environment config and third-party API responses. Inside the app, pass the validated objects around. **SHOULD NOT** validate them again.
-- **MUST** use one model per direction: `BookingCreate` (input), `BookingUpdate` (partial input), `BookingOut` (response). **MUST NOT** reuse an ORM or DB model as an API schema.
+- **MUST** use one model per direction: `TaskCreate` (input), `TaskUpdate` (partial input), `TaskOut` (response). **MUST NOT** reuse an ORM or DB model as an API schema. *Why:* a single shared model forces every field to be optional (for updates) or exposed (for input and output) at once, which hides which fields a caller may actually set or see.
 - **SHOULD** put shared config in base classes and inherit from them:
 
 ```python
@@ -693,15 +746,15 @@ class CamelModel(BaseModel):
 ```
 
 - **MUST** use `extra="forbid"` on input models, so typos fail loudly. **MAY** keep `extra="ignore"` (the default) for third-party payloads that add new fields over time.
-- **SHOULD** use `strict=True` (on the whole model, or per field with `Field(strict=True)`) when silent coercion such as `"1"` → `1` would hide bugs, for example in internal messages. Keep lax mode for form data and query strings.
+- **SHOULD** use `strict=True` (on the whole model, or per field with `Field(strict=True)`) for a field fed by another internal service or a queue message, where a coercion such as `"1"` → `1` almost always means a bug upstream rather than valid input. Keep lax mode for form data and query strings, which are strings by nature.
 - **SHOULD** use `validate_default=True` when default values must also pass the validators.
-- **MUST** use `validate_by_name=True` together with `validate_by_alias=True` instead of `populate_by_name`.
+- **MUST** use `validate_by_name=True` together with `validate_by_alias=True` instead of `populate_by_name`. *Why:* `populate_by_name` is not recommended since Pydantic 2.11 and will be deprecated in v3; the `validate_by_name` + `validate_by_alias` pair gives the same behavior under the current config.
 - Since 2.14.2, JSON keys that match only a field's unused name count as extra data. A model with an `alias_generator` and `extra="forbid"`, but without `validate_by_name=True`, now rejects `{"page_size": 50}` with `extra_forbidden`. **MUST** set `validate_by_name=True` (as `CamelModel` does) when both spellings are valid input.
 - **MUST NOT** read `model_config` at runtime to find out effective settings. Since 2.14 it holds only the values you set; Pydantic no longer adds derived ones.
 
 ```python
 # ❌
-class BookingCreate(BaseModel):
+class TaskCreate(BaseModel):
     class Config:                            # v1 style. Use model_config = ConfigDict(...).
         orm_mode = True                      # Now from_attributes=True.
         allow_population_by_field_name = True  # Now validate_by_name=True.
@@ -714,27 +767,27 @@ class BookingCreate(BaseModel):
 ```python
 from uuid import UUID
 
-from pydantic import AwareDatetime, PositiveInt, StringConstraints
+from pydantic import AwareDatetime, Field, PositiveInt, StringConstraints
 
-type BookingRef = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^BK-\d{6}$")]
+type TaskRef = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^TASK-\d{6}$")]
 type Money = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
-type GuestCount = Annotated[int, Field(ge=1, le=8)]
+type Priority = Annotated[int, Field(ge=1, le=5)]
 type Note = Annotated[str, StringConstraints(max_length=500)]
 
 
-class BookingCreate(InputModel):
-    room_id: PositiveInt
-    check_in: date
-    check_out: date
-    guests: GuestCount = 1
+class TaskCreate(InputModel):
+    project_id: PositiveInt
+    start_date: date
+    due_date: date
+    priority: Priority = 3
     notes: Note | None = None
     tags: list[str] = Field(default_factory=list[str])
 
 
-class BookingOut(ValueModel):
+class TaskOut(ValueModel):
     id: UUID
-    ref: BookingRef
-    status: BookingStatus
+    ref: TaskRef
+    status: TaskStatus
     total: Money
     created_at: AwareDatetime
 ```
@@ -759,22 +812,22 @@ class BookingOut(ValueModel):
 from pydantic import MISSING
 
 
-class BookingUpdate(InputModel):
+class TaskUpdate(InputModel):
     notes: Note | MISSING | None = MISSING
-    guests: GuestCount | MISSING = MISSING
+    priority: Priority | MISSING = MISSING
 
 
-patch = BookingUpdate.model_validate_json('{"notes": null}')
-assert patch.guests is MISSING
+patch = TaskUpdate.model_validate_json('{"notes": null}')
+assert patch.priority is MISSING
 assert patch.model_dump() == {"notes": None}
 ```
 
 ```python
 # ❌
-type GuestCount = Annotated[int, Field(ge=1, default=1)]  # default is ignored inside a type alias.
+type Priority = Annotated[int, Field(ge=1, default=3)]  # default is ignored inside a type alias.
 
-class BookingCreate(BaseModel):
-    room_id: int = Field(..., gt=0)                        # Use PositiveInt. `...` isn't needed.
+class TaskCreate(BaseModel):
+    project_id: int = Field(..., gt=0)                     # Use PositiveInt. `...` isn't needed.
     notes: Optional[constr(max_length=500)] = None         # v1 style. Use Note | None.
     created_at: datetime                                   # Accepts naive datetimes.
 ```
@@ -788,7 +841,7 @@ class BookingCreate(BaseModel):
   2. A reusable `AfterValidator` in a `type` alias, for rules used by more than one model.
   3. `@field_validator` for a rule that belongs to one model.
   4. `@model_validator(mode="after")` for rules that involve several fields.
-  5. `mode="before"` only to reshape raw input. **AVOID** `mode="wrap"` and `mode="plain"` unless nothing else works; they are slower, and plain validators skip type checks entirely.
+  5. `mode="before"` only to reshape raw input. **SHOULD NOT** use `mode="wrap"` or `mode="plain"` unless nothing else works; they are slower, and plain validators skip type checks entirely.
 
 ```python
 from typing import Self
@@ -813,14 +866,14 @@ type Currency = Annotated[
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class RoomCatalog:
-    room_ids: frozenset[int]
+class ProjectCatalog:
+    project_ids: frozenset[int]
 
 
-class StayRequest(InputModel):
-    room_id: PositiveInt
-    check_in: date
-    check_out: date
+class TaskRequest(InputModel):
+    project_id: PositiveInt
+    start_date: date
+    due_date: date
     currency: Currency = "EUR"
     phone: str | None = None
 
@@ -831,32 +884,32 @@ class StayRequest(InputModel):
             return "".join(ch for ch in value if ch.isdigit() or ch == "+")
         return value
 
-    @field_validator("room_id", mode="after")
+    @field_validator("project_id", mode="after")
     @classmethod
-    def _check_room_exists(cls, value: int, info: ValidationInfo) -> int:
+    def _check_project_exists(cls, value: int, info: ValidationInfo) -> int:
         catalog = info.context
-        if isinstance(catalog, RoomCatalog) and value not in catalog.room_ids:
+        if isinstance(catalog, ProjectCatalog) and value not in catalog.project_ids:
             raise PydanticCustomError(
-                "unknown_room",
-                "Room {room_id} does not exist",
-                {"room_id": value},
+                "unknown_project",
+                "Project {project_id} does not exist",
+                {"project_id": value},
             )
         return value
 
     @model_validator(mode="after")
     def _check_dates(self) -> Self:
-        if self.check_out <= self.check_in:
-            raise ValueError("check_out must be after check_in")
+        if self.due_date <= self.start_date:
+            raise ValueError("due_date must be after start_date")
         return self
 
 
-stay = StayRequest.model_validate(
-    {"room_id": 7, "check_in": "2026-11-01", "check_out": "2026-11-03", "currency": "eur"},
-    context=RoomCatalog(room_ids=frozenset({7})),
+task_request = TaskRequest.model_validate(
+    {"project_id": 7, "start_date": "2026-11-01", "due_date": "2026-11-03", "currency": "eur"},
+    context=ProjectCatalog(project_ids=frozenset({7})),
 )
 ```
 
-- **MUST** put `@field_validator(...)` above `@classmethod`, and annotate both the value and the return type.
+- **MUST** put `@field_validator(...)` above `@classmethod`, and annotate both the value and the return type. *Why:* `@classmethod` must be the innermost decorator so `cls` binds before `field_validator` wraps the function; reversed, `field_validator` wraps a plain function instead of a classmethod.
 - **MUST** write `mode="after"` model validators as instance methods that return `Self`. **MUST NOT** add `@classmethod`; since 2.12 Pydantic no longer converts them for you.
 - **MUST** annotate input and output of `mode="before"` validators as `object`, since raw data can be anything. Handle every input shape. **MUST** return a new value and never mutate the input, because other union branches may see the mutated value.
 - **MUST** report a failure by raising `ValueError` for simple cases, or `PydanticCustomError` when clients need a stable error `type`. **MUST NOT** use `assert` (`python -O` strips it), and **MUST NOT** raise `ValidationError` yourself.
@@ -867,10 +920,10 @@ stay = StayRequest.model_validate(
 
 ```python
 # ❌
-class StayRequest(BaseModel):
-    @validator("check_out")                    # v1 API.
+class TaskRequest(BaseModel):
+    @validator("due_date")                     # v1 API.
     def check(cls, v, values):                 # No types. Relies on the order in the values dict.
-        assert v > values["check_in"]          # Stripped by python -O.
+        assert v > values["start_date"]        # Stripped by python -O.
         return v
 
     @model_validator(mode="after")
@@ -907,7 +960,7 @@ type Payment = Annotated[CardPayment | BankTransfer, Field(discriminator="method
 
 
 class Checkout(InputModel):
-    booking_ref: BookingRef
+    task_ref: TaskRef
     payment: Payment
 ```
 
@@ -925,16 +978,16 @@ type MoneyOut = Annotated[Money, PlainSerializer(_two_places, return_type=str, w
 
 
 class InvoiceOut(ValueModel):
-    check_in: date
-    check_out: date
-    nightly_rate: MoneyOut
+    start_date: date
+    due_date: date
+    hourly_rate: MoneyOut
     issued_at: AwareDatetime
 
     @computed_field
     @property
-    def nights(self) -> int:
-        """Number of nights in the stay."""
-        return (self.check_out - self.check_in).days
+    def billable_days(self) -> int:
+        """Number of days billed."""
+        return (self.due_date - self.start_date).days
 
     @field_serializer("issued_at", when_used="json")
     def _format_issued_at(self, value: datetime) -> str:
@@ -942,15 +995,18 @@ class InvoiceOut(ValueModel):
 
 
 invoice = InvoiceOut(
-    check_in=date(2026, 11, 1),
-    check_out=date(2026, 11, 3),
-    nightly_rate=Decimal("120"),
+    start_date=date(2026, 11, 1),
+    due_date=date(2026, 11, 3),
+    hourly_rate=Decimal("120"),
     issued_at=datetime.now(UTC),
 )
-assert invoice.model_dump(mode="json")["nightly_rate"] == "120.00"
+assert invoice.model_dump(mode="json")["hourly_rate"] == "120.00"
 ```
 
-- **MUST** put `@computed_field` on a `@property` with a return type, because the return type becomes the JSON Schema. **SHOULD** keep computed fields cheap and free of side effects. **MAY** use `@computed_field(exclude_if=...)` (2.13+) to drop values such as zero from the output. With mypy, put `# type: ignore[prop-decorator]` on the `@computed_field` line.
+- **MUST** put `@computed_field` on a `@property` with a return type, because the return type becomes the JSON Schema.
+- **SHOULD** keep computed fields cheap and free of side effects.
+- **MAY** use `@computed_field(exclude_if=...)` (2.13+) to drop values such as zero from the output.
+- **MUST**, if the project uses mypy, put `# type: ignore[prop-decorator]` on the `@computed_field` line.
 - **SHOULD** pick the dump method by what you need:
   - `model_dump()` returns Python objects.
   - `model_dump(mode="json")` returns a dict of JSON-safe types.
@@ -958,7 +1014,7 @@ assert invoice.model_dump(mode="json")["nightly_rate"] == "120.00"
 - **MAY** pass `exclude_none`, `exclude_unset` and `exclude_defaults` per call. **SHOULD** prefer `MISSING` fields for partial payloads.
 - **SHOULD** put reusable output formats in a `PlainSerializer` inside an `Annotated` type, and use `@field_serializer` for a format that belongs to one model.
 - **MUST** call `handler(value)` in a wrap serializer. **MUST NOT** call `handler(value, info)`, which raises since 2.14.
-- A field typed as a base model serializes only the base model's fields, even when it holds a subclass. To include the subclass's fields, **SHOULD** set `polymorphic_serialization=True` in the **base** model's config, or pass it to `model_dump()` (2.13+). **AVOID** `serialize_as_any` and `SerializeAsAny` for this.
+- A field typed as a base model serializes only the base model's fields, even when it holds a subclass. To include the subclass's fields, **SHOULD** set `polymorphic_serialization=True` in the **base** model's config, or pass it to `model_dump()` (2.13+). **SHOULD NOT** use `serialize_as_any` or `SerializeAsAny` for this.
 
 ---
 
@@ -968,10 +1024,10 @@ assert invoice.model_dump(mode="json")["nightly_rate"] == "120.00"
 from pydantic import TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
-BOOKING_LIST: Final = TypeAdapter(list[BookingOut])
+TASK_LIST: Final = TypeAdapter(list[TaskOut])
 
 
-class InvalidPayloadError(BookingManagerError):
+class InvalidPayloadError(AppError):
     """A request body failed validation."""
 
     def __init__(self, errors: list[ErrorDetails]) -> None:
@@ -979,19 +1035,19 @@ class InvalidPayloadError(BookingManagerError):
         self.errors = errors
 
 
-def parse_bookings(raw: bytes) -> list[BookingOut]:
-    return BOOKING_LIST.validate_json(raw)
+def parse_tasks(raw: bytes) -> list[TaskOut]:
+    return TASK_LIST.validate_json(raw)
 
 
-def read_booking_request(body: bytes) -> BookingCreate:
+def read_task_request(body: bytes) -> TaskCreate:
     try:
-        return BookingCreate.model_validate_json(body)
+        return TaskCreate.model_validate_json(body)
     except ValidationError as err:
         raise InvalidPayloadError(err.errors(include_url=False)) from err
 
 
-booking = BookingCreate(room_id=7, check_in=date(2026, 11, 1), check_out=date(2026, 11, 3))
-updated = BookingCreate.model_validate(booking.model_dump() | {"guests": 3})
+task = TaskCreate(project_id=7, start_date=date(2026, 11, 1), due_date=date(2026, 11, 3))
+updated = TaskCreate.model_validate(task.model_dump() | {"priority": 5})
 ```
 
 - **MUST** parse JSON input with `Model.model_validate_json(raw)`. **MUST NOT** use `Model.model_validate(json.loads(raw))`; it parses twice and is slower.
@@ -1001,14 +1057,14 @@ updated = BookingCreate.model_validate(booking.model_dump() | {"guests": 3})
 - **MUST NOT** rely on `model_copy(update=...)` for data you don't fully trust; it does **not** validate the update. Use `Model.model_validate(m.model_dump() | changes)`.
 - **MUST** catch `ValidationError` only at the boundary. Turn it into a 400/422 response or a domain error, and use `err.errors(include_url=False)` for what clients see.
 - **SHOULD** use `lazy from` imports in both modules when two model modules import each other (Python 3.15 with Pydantic 2.14+, see [§2.4](#24-lazy-imports-pep-810)). **MUST NOT** add string annotations or `model_rebuild()` calls for this. Call `model_rebuild()` only if Pydantic raises an error about an undefined type.
-- **MUST** build models dynamically with `create_model(..., __namespace__={...})` (2.14+). `__validators__` will be deprecated in v3.
+- When you build models dynamically, **MUST** use `create_model(..., __namespace__={...})` (2.14+), not the `__validators__` argument. *Why:* the [Pydantic 2.14 release notes](https://pydantic.dev/articles/pydantic-v2-14-release) say `__validators__` "will be deprecated in v3."
 
 ```python
 # ❌
-booking = BookingCreate.model_validate(json.loads(body))  # Parses twice.
-def parse_bookings(raw: bytes) -> list[BookingOut]:
-    return TypeAdapter(list[BookingOut]).validate_json(raw)  # Rebuilds the validator on every call.
-updated = booking.model_copy(update={"guests": "lots"})  # Not validated: guests is now a str.
+task = TaskCreate.model_validate(json.loads(body))  # Parses twice.
+def parse_tasks(raw: bytes) -> list[TaskOut]:
+    return TypeAdapter(list[TaskOut]).validate_json(raw)  # Rebuilds the validator on every call.
+updated = task.model_copy(update={"priority": "high"})  # Not validated: priority is now a str.
 ```
 
 ---
@@ -1021,12 +1077,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """App configuration read from `BOOKING_*` env vars and `.env`."""
+    """App configuration read from `APP_*` env vars and `.env`."""
 
     model_config = SettingsConfigDict(
-        env_prefix="BOOKING_",
+        env_prefix="APP_",
         env_file=".env",
-        dotenv_filtering="match_prefix",  # Skip other apps' keys; still reject BOOKING_ typos.
+        dotenv_filtering="match_prefix",  # Skip other apps' keys; still reject APP_ typos.
         frozen=True,
     )
 
@@ -1048,21 +1104,24 @@ The full rules (loading at startup, FastAPI injection, nested and list values, s
 
 ## 12. Pydantic: performance
 
-Most apps are never slowed down by Pydantic. The first two rules always apply; apply the rest only after profiling shows Pydantic is the bottleneck.
+Most apps are never slowed down by Pydantic. These always apply:
 
 - **MUST** use `model_validate_json()` instead of `json.loads()` followed by `model_validate()`.
 - **MUST** create `TypeAdapter`s once, at module level.
-- **SHOULD** use concrete container types in model fields: `list[int]` and `dict[str, int]`, not `Sequence` or `Mapping`, which validate more slowly. This is the one exception to the "general parameter types" rule in [§3](#3-type-hints).
-- **SHOULD** use discriminated unions, not plain unions.
-- **MAY** use `TypedDict` instead of nested `BaseModel`s for large nested data you only read (about 2.5x faster).
-- **MAY** annotate a field as `Any` when its value should pass through untouched.
+- **MUST** use concrete container types in model fields: `list[int]` and `dict[str, int]`, not `Sequence` or `Mapping`, which validate more slowly. This is the default for Pydantic model fields and the one exception to the "general parameter types" rule in [§3](#3-type-hints); it doesn't need profiling first, unlike the rest of this section.
+
+Apply the rest only after profiling shows Pydantic is the bottleneck:
+
+- Discriminated unions are already required for every union of models ([§9.1](#91-discriminated-unions)); that rule is partly a performance one too, since a discriminator skips trying every variant.
+- **MAY** use `TypedDict` instead of nested `BaseModel`s for data you only read, once it's over about 10 KB of JSON (about 2.5x faster).
+- **MAY** annotate a field as `Any`, with a comment saying why ([§3.1](#31-rules)), when its value should pass through untouched.
 - **MAY** use `Annotated[list[T], FailFast()]` to stop at the first bad item in a large list.
-- **AVOID** wrap validators in hot paths.
+- **SHOULD NOT** use wrap validators in hot paths.
 
 ```python
 from pydantic import FailFast
 
-GUEST_IDS: Final = TypeAdapter(Annotated[list[int], FailFast()])
+TASK_IDS: Final = TypeAdapter(Annotated[list[int], FailFast()])
 ```
 
 ---
@@ -1106,14 +1165,16 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    ("check_in", "check_out"),
+    ("start_date", "due_date"),
     [("2026-11-03", "2026-11-01"), ("2026-11-01", "2026-11-01")],
 )
-def test_stay_request_rejects_check_out_not_after_check_in(check_in: str, check_out: str) -> None:
+def test_task_request_rejects_due_date_not_after_start_date(start_date: str, due_date: str) -> None:
     with pytest.raises(ValidationError) as exc_info:
-        StayRequest.model_validate({"room_id": 7, "check_in": check_in, "check_out": check_out})
+        TaskRequest.model_validate({"project_id": 7, "start_date": start_date, "due_date": due_date})
 
-    assert exc_info.value.errors()[0]["type"] == "value_error"
+    errors = exc_info.value.errors()
+    assert errors[0]["type"] == "value_error"
+    assert errors[0]["loc"] == ()  # Model-level error from a mode="after" validator.
 ```
 
 - **MUST** test models through their public entry points (`model_validate`, `model_validate_json`, `model_dump`). **SHOULD NOT** call validators directly.
@@ -1123,20 +1184,20 @@ def test_stay_request_rejects_check_out_not_after_check_in(check_in: str, check_
 
 ---
 
-## 15. Pre-PR checklist
+## 15. PR checklist
 
 - [ ] `uv run ruff format .` and `uv run ruff check .` pass, with no new `noqa` that lacks a rule code and a reason.
 - [ ] `uv run pyright` passes in strict mode. Every ignore has a rule code and a reason.
 - [ ] `uv run pytest` passes, and new behavior has tests.
 - [ ] Every function has parameter and return annotations.
 - [ ] Public modules, classes and functions have Google-style docstrings with no types repeated.
-- [ ] Comments explain why. No commented-out code. Every TODO has a `DEV-` ticket.
+- [ ] Comments explain why. No commented-out code. Every TODO has the ticket ID.
 - [ ] No deprecated typing (`List`, `Optional`, `Union`, `TypeVar(...)`, `from __future__ import annotations`, quoted annotations).
 - [ ] External data enters through a Pydantic model or a module-level `TypeAdapter`, and input models use `extra="forbid"`.
 - [ ] No Pydantic v1 APIs or other items from [§13](#13-deprecated-or-removed-dont-use).
 - [ ] Money is `Decimal`, datetimes are timezone-aware, and secrets are `SecretStr`.
 - [ ] Logging follows [logging.md](logging.md): Loguru only, no `print`, constant messages, no secrets in logs.
-- [ ] Dependencies were added with `uv add`, and `pydantic`/`pydantic-settings` are on their latest patch.
+- [ ] Dependencies were added with `uv add`, and `pydantic`/`pydantic-settings` match the versions pinned in [§0](#0-versions-and-upgrades).
 
 ---
 
@@ -1155,4 +1216,4 @@ def test_stay_request_rejects_check_out_not_after_check_in(check_in: str, check_
 - Typing best practices: https://typing.python.org/en/latest/reference/best_practices.html
 - Google Python Style Guide, §3.8 (comments and docstrings) and §3.19 (type annotations): https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings
 
-Package versions checked against PyPI on 2026-10-31: `pydantic` 2.14.2, `pydantic-settings` 2.16.2, `ruff` 0.17.3, `pyright` 1.1.414, `mypy` 2.4.1, `pytest` 9.2.0, `email-validator` (latest). Every ✅ code sample in this file was run on Python 3.15.2 with these versions, with warnings treated as errors, and passes `ruff check`, `ruff format --check` and pyright strict.
+Package versions checked against PyPI on 2026-10-31: `pydantic` 2.14.2, `pydantic-settings` 2.16.2, `ruff` 0.17.3, `pyright` 1.1.414, `mypy` 2.4.1, `pytest` 9.2.0, `email-validator` (latest). Every sample not marked `# ❌` in this file was run on Python 3.15.2 with these versions, with warnings treated as errors, and passes `ruff check`, `ruff format --check` and pyright strict.

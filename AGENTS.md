@@ -14,7 +14,9 @@ This folder holds the engineering rules for any project that includes it, usuall
 
 | Task | Read |
 |---|---|
+| Architecture, design-pattern or error-handling strategy decision | [design-patterns.md](design-patterns.md) §1–2, §22 (decision guide) |
 | Any TypeScript code | [typescript.md](typescript.md) |
+| Write or validate a Zod schema | [zod.md](zod.md) §2 (where to validate), §7–12 |
 | New Next.js page, layout or route | [nextjs.md](nextjs.md) §2–4, §9 · [react.md](react.md) §3 |
 | Load data in a Server Component | [nextjs.md](nextjs.md) §5–6 · [react.md](react.md) §7 |
 | Form, mutation or Server Action | [react.md](react.md) §8 · [nextjs.md](nextjs.md) §7–8 · UI: [shadcn.md](shadcn.md) §8 |
@@ -33,15 +35,16 @@ This folder holds the engineering rules for any project that includes it, usuall
 | Styling and design tokens | [tailwind.md](tailwind.md) §2–8. If the project uses shadcn/ui, [shadcn.md](shadcn.md) §5–6 first |
 | Add or change a UI component | [shadcn.md](shadcn.md) §4, §7, §14 |
 | Dark mode | [shadcn.md](shadcn.md) §5 if the project uses shadcn/ui, otherwise [tailwind.md](tailwind.md) §7 |
-| Dates and times | [typescript.md](typescript.md) §9 · [trpc.md](trpc.md) §9 · database columns: [postgresql.md](postgresql.md) §3 |
+| Dates and times | [typescript.md](typescript.md) §9 · [trpc.md](trpc.md) §9 · database columns: [postgresql.md](postgresql.md) §3 · time zones, DST, recurring events or events tied to a place: [timezones.md](timezones.md) |
 | SQL query, schema, index or constraint | [postgresql.md](postgresql.md) §2–7 |
 | Database migration or backfill | [postgresql.md](postgresql.md) §8 |
 | Slow query, locking or connection pool | [postgresql.md](postgresql.md) §7, §9 · pool settings: §11 |
-| Database access from Prisma | [postgresql.md](postgresql.md) §11.2 |
+| Database access from Prisma | [prisma.md](prisma.md) §4–12 · connection and pooling: [postgresql.md](postgresql.md) §11.1 |
+| Database access from Drizzle | [drizzle.md](drizzle.md) §4–10 · connection and pooling: [postgresql.md](postgresql.md) §11.1 |
 | SQLAlchemy models, relationships, sessions or queries | [sqlalchemy.md](sqlalchemy.md) §3–8 · engine/pooling: §1–2 |
 | FastAPI endpoint that reads or writes the database | [sqlalchemy.md](sqlalchemy.md) §10 · response shape: [python-pydantic.md](python-pydantic.md) §6 |
 | Database migration with SQLAlchemy/Alembic | [sqlalchemy.md](sqlalchemy.md) §13 · zero-downtime patterns: [postgresql.md](postgresql.md) §8 |
-| Database roles, row level security or Supabase | [postgresql.md](postgresql.md) §10–11 |
+| Database roles, row level security or Supabase | [postgresql.md](postgresql.md) §10 |
 | Python code | [python-pydantic.md](python-pydantic.md) §1–5 · [uv.md](uv.md) Key rules |
 | uv project setup, dependencies or lockfile | [uv.md](uv.md) §2–6 |
 | Supply-chain security, private indexes, dependency cooldown | [uv.md](uv.md) §7–8 |
@@ -55,8 +58,11 @@ This folder holds the engineering rules for any project that includes it, usuall
 | Audit log, "who did what" records, security event logging | [logging.md](logging.md) §4 |
 | HTTP / API integration (e2e) tests with Supertest | [supertest.md](supertest.md) Key rules, §3, §5–6 · NestJS app setup: [nestjs.md](nestjs.md) §17 · tRPC over HTTP: [trpc.md](trpc.md) §19 |
 | Jest config, mocks, fake timers, snapshots or coverage | [jest.md](jest.md) Key rules, then §2 config · §3 TypeScript · §7 mocks · §8 timers · §10 snapshots · §14 coverage |
-| Writing tests | The "Testing" section of each file you touched · HTTP tests: [supertest.md](supertest.md) · if the project runs Jest: [jest.md](jest.md) |
+| Writing tests | [testing.md](testing.md) Key rules, then the "Testing" section of each file you touched · Vitest setup: [testing.md](testing.md) §10 · Python: [pytest.md](pytest.md) · HTTP tests: [supertest.md](supertest.md) · if the project runs Jest: [jest.md](jest.md) |
+| Integration test against a database or an external service | [testing.md](testing.md) §7–8 · SQLAlchemy: [sqlalchemy.md](sqlalchemy.md) §15 · HTTP APIs: [supertest.md](supertest.md) |
+| Flaky test, test coverage, or tests in CI | [testing.md](testing.md) §12–14 |
 | Upgrading a dependency | The "Versions" / "Upgrades" section of that technology's file |
+| Commit, branch, PR, release or Git/GitHub workflow | [git.md](git.md) Key rules, then the section you need |
 
 ## Rule keywords
 
@@ -81,7 +87,10 @@ When two sources disagree, follow the higher one:
    - graphql.md over tanstack-query.md and nestjs.md
    - nextjs.md over react.md
    - postgresql.md over nestjs.md, python-pydantic.md and typescript.md on database rules
-   - sqlalchemy.md over postgresql.md and nestjs.md on SQLAlchemy-specific rules (models, sessions, Alembic); postgresql.md stays authoritative on SQL, schema and Postgres itself
+   - sqlalchemy.md over postgresql.md on SQLAlchemy-specific rules (models, sessions, Alembic); postgresql.md stays authoritative on SQL, schema and Postgres itself
+   - prisma.md over postgresql.md on Prisma-specific rules (schema, client, migrations); postgresql.md stays authoritative on SQL, schema and Postgres itself
+   - drizzle.md over postgresql.md on Drizzle-specific rules (schema, queries, migrations); postgresql.md stays authoritative on SQL, schema and Postgres itself
+   - zod.md over typescript.md on the Zod API itself; typescript.md stays authoritative on language and tsconfig rules
    - nestjs.md, trpc.md and nextjs.md over api-design.md
    - nestjs.md, trpc.md and postgresql.md over supertest.md on app wiring and database rules
    - any framework file over typescript.md

@@ -576,39 +576,7 @@ GRANT EXECUTE ON FUNCTION public.close_project(bigint) TO authenticated;
 
 ### 11.2 Prisma
 
-- **MUST** pin the CLI to the stable line: `npm i -D prisma@7 @prisma/client@7`. *Why:* as of 2026-10-30 the `latest` tag is 8.0.0-rc.29, so an unpinned install pulls a release candidate whose API is different. Prisma 7 is on the `prev` tag and is 7.10.1.
-- **MUST NOT** install `prisma@latest` while the `latest` dist-tag points at a release candidate. *Why:* as of 2026-10-30 the `latest` tag is 8.0.0-rc.29, so an unpinned install pulls a release candidate whose API is different. Prisma 7 is on the `prev` tag and is 7.10.1.
-- **SHOULD** upgrade projects on Prisma 5 or 6 to 7. *Why:* Prisma 6 receives security patches only, ending 2026-11-19. Prisma 7 needs a driver adapter, `prisma.config.ts`, ESM, Node 20.19 or newer, and no longer loads `.env` on its own. Read the v7 upgrade guide *(human)*.
-- **MUST** map `DateTime` to `timestamptz` with `@db.Timestamptz(3)`. *Why:* Prisma's default for PostgreSQL is `timestamp(3)`, which has no time zone.
-- **MUST** set `@db.Uuid` on UUID ids (`String @id @default(uuid(7)) @db.Uuid`). *Why:* a plain `String` becomes `text`, which is larger and slower to index than `uuid`.
-- **SHOULD** prefer `BigInt @id @default(autoincrement())` only knowing it creates a `bigserial`-style column.
-- **SHOULD** edit the migration SQL to use `GENERATED ALWAYS AS IDENTITY` for new tables ([§3](#3-data-types)).
-- **MUST** use tagged `$queryRaw` and `$executeRaw` (they bind parameters) for raw SQL. *Why:* those take the string as is and are injectable. Use `Prisma.sql`, `Prisma.join(ids)` and `Prisma.empty` to compose pieces.
-- **MUST NOT** pass user input to `$queryRawUnsafe`, `$executeRawUnsafe` or `Prisma.raw`. *Why:* those take the string as is and are injectable. Use `Prisma.sql`, `Prisma.join(ids)` and `Prisma.empty` to compose pieces.
-- **SHOULD** use TypedSQL (`prisma/sql/*.sql`, `prisma generate --sql`, `$queryRawTyped`) for hand-written queries. It is a Preview feature (`previewFeatures = ["typedSql"]`), so check the release notes on upgrades.
-
-```ts
-// src/tasks/tasks.repository.ts
-import { Prisma, PrismaClient } from '@prisma/client';
-
-export async function tasksByProjects(prisma: PrismaClient, projectIds: bigint[], limit: number) {
-  return prisma.$queryRaw<{ id: bigint; title: string }[]>(Prisma.sql`
-    SELECT id, title FROM tasks
-    WHERE project_id IN (${Prisma.join(projectIds)})
-    ORDER BY created_at DESC, id DESC
-    LIMIT ${Math.min(limit, 100)}
-  `);
-}
-
-// ❌ Never: the string is not parameterized.
-// prisma.$queryRawUnsafe(`SELECT * FROM tasks WHERE title = '${title}'`);
-```
-
-- **MUST** select only the fields a caller needs (`select: { id: true, title: true }`). *Why:* a query per row in a loop turns a 50-row page into 51 round trips.
-- **MUST** avoid N+1: use `include` or `select` with relations, `relationLoadStrategy: 'join'` (Preview behind `relationJoins`), or one `findMany({ where: { id: { in: ids } } })`. *Why:* a query per row in a loop turns a 50-row page into 51 round trips.
-- **MUST** keep `$transaction` callbacks short, with no network calls, and set `timeout` and `maxWait` on purpose (defaults are 5,000 ms and 2,000 ms). *Why:* a stuck callback holds a pooled connection and its locks.
-- **MUST** point migrations at the direct connection (`url: env("DIRECT_URL")` in `prisma.config.ts` for Prisma 7) and the app at the pooler. *Why:* Prisma's schema engine needs a session-capable connection.
-- **SHOULD** create a dedicated `prisma` database role with the privileges it needs, instead of using `postgres`.
+[prisma.md](prisma.md) is the full reference for Prisma — schema design, migrations, querying, transactions, raw SQL safety, multi-tenancy and testing. The connection and pooling rules in [§11.1](#111-connection-and-pooling) above apply to Prisma too; where the two disagree on anything Prisma-specific, prisma.md wins (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
 
 ### 11.3 SQLAlchemy, psycopg and asyncpg
 

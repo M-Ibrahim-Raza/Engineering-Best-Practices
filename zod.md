@@ -1261,7 +1261,7 @@ describe('CreateUserInputSchema', () => {
 
 ---
 
-## 20. Pre-PR checklist
+## 20. PR checklist
 
 - [ ] `zod` is on the latest 4.x patch, and the package name is exactly `zod` (or `@zod/mini`).
 - [ ] Every schema is imported as `import * as z from 'zod'`, defined at module scope, and named `XSchema` with `type X = z.infer<typeof XSchema>` right below it.
