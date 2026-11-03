@@ -1,8 +1,24 @@
-# Engineering Best Practices
+# Engineering Handbook
 
-Shared engineering rules for our projects. Each file covers one technology and is written so that both developers and AI coding agents (such as Claude Code) can follow it.
+Shared engineering knowledge for our projects, written so that both developers and AI coding agents (such as Claude Code) can follow it. It has two parts:
 
-## Files
+- **Best practices** (`best-practices/`): the rules. Each file covers one technology and uses MUST / SHOULD / MAY rules.
+- **Guides** (`guides/`): short process references, such as going from an idea to a feature list or choosing code quality tools.
+
+This repo was called Engineering-Best-Practices until November 2026. GitHub redirects the old URL.
+
+## Folder structure
+
+```text
+AGENTS.md          Index for AI agents: which file to read for a task, rule keywords, precedence, glossary
+CLAUDE.md          Imports AGENTS.md for Claude Code
+README.md          This file
+best-practices/    One file per technology, written as MUST / SHOULD / MAY rules
+guides/            Process references, without rule keywords
+scripts/           check_docs.py: checks AGENTS.md routing, section references and links (runs in CI)
+```
+
+## Best practices
 
 | File | Covers |
 |---|---|
@@ -32,38 +48,48 @@ Shared engineering rules for our projects. Each file covers one technology and i
 | [pytest.md](best-practices/pytest.md) | pytest for Python: fixtures, parametrization, mocking, async tests, database and HTTP integration tests, coverage, CI. |
 | [testing.md](best-practices/testing.md) | Unit and integration testing for TypeScript and Python: what to test, writing tests, test data and doubles, determinism, database and HTTP integration tests, the Vitest setup, coverage, flaky tests, CI, and tests written by AI agents. |
 | [git.md](best-practices/git.md) | Git and GitHub: branching, commits, PRs, stacked PRs, merging, branch protection, signing, secrets, releases, submodules, worktrees. |
-| [AGENTS.md](AGENTS.md) | The index for AI agents: which file to read for a task, rule keywords, precedence and glossary. |
+
+## Guides
+
+| File | Covers |
+|---|---|
+| [feature-engineering.md](guides/feature-engineering.md) | Going from an idea to a feature list you can build and test: framing, Mom Test interviews, story mapping, release slicing, MoSCoW and RICE, EARS acceptance criteria, Definition of Ready. |
+| [code-quality.md](guides/code-quality.md) | Code quality tools and practices for TypeScript and Python on GitHub: format, lint, type checks, SAST, secret and dependency scanning, mutation testing, CI quality gates. |
+
+Guides are reference notes, not rules. When a guide and a best-practices file disagree, the best-practices file wins (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
 
 ## Using this repo in a project
 
 1. Add it as a submodule:
 
    ```bash
-   git submodule add <repo-url> docs/best-practices
+   git submodule add <repo-url> docs/engineering-handbook
    ```
 
 2. Point your agents at the index.
    - **Claude Code:** add this line to the project's `CLAUDE.md`:
 
      ```markdown
-     @docs/best-practices/AGENTS.md
+     @docs/engineering-handbook/AGENTS.md
      ```
 
    - **Other agents** that read `AGENTS.md` (Codex, Cursor and others): add this line to the project's `AGENTS.md`:
 
      ```markdown
-     Before writing code, read docs/best-practices/AGENTS.md and follow the files it points to.
+     Before writing code, read docs/engineering-handbook/AGENTS.md and follow the files it points to.
      ```
 
-   Import only the index, not the individual files. The index is small; the files together are about 265k tokens, and agents load only the ones a task needs.
+   Import only the index, not the individual files. The index is small; the files together are about 270k tokens, and agents load only the ones a task needs.
 
 3. To record a project-specific exception, write an ADR or add a note to the project's `CLAUDE.md` / `AGENTS.md`. Project decisions override these files (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
 
-4. To pick up new rules, run `git submodule update --remote docs/best-practices`.
+4. To pick up new rules, run `git submodule update --remote docs/engineering-handbook`.
+
+5. **Added it under the old name?** Point the submodule at the new URL with `git submodule set-url <submodule-path> <repo-url>`. Imports of `AGENTS.md` keep working, because its links are relative. Direct links to a single file need the new `best-practices/` folder in their path, for example `docs/best-practices/best-practices/git.md`.
 
 ## Reading the rules
 
-Every rule starts with a keyword:
+Every rule in `best-practices/` starts with a keyword:
 
 | Keyword | Meaning |
 |---|---|
@@ -71,13 +97,13 @@ Every rule starts with a keyword:
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-Each file starts with **Key rules** (the 10–15 rules that matter most) and ends with a **PR checklist**.
+Each best-practices file starts with **Key rules** (the 10–15 rules that matter most) and ends with a **PR checklist**. Guides have numbered sections but no keywords, Key rules or PR checklist.
 
 ## Contributing
 
-Keep every file in the same shape so agents and people can find things the same way everywhere.
+Keep every file of a kind in the same shape so agents and people can find things the same way everywhere. Add every new file to the [AGENTS.md](AGENTS.md) routing table: `scripts/check_docs.py` fails CI for files that aren't linked there, for files left in the repo root, and for broken relative links.
 
-### File template
+### Best-practices file template
 
 ```markdown
 # <Technology> Best Practices
@@ -103,7 +129,25 @@ Keep every file in the same shape so agents and people can find things the same 
 ## N. Sources
 ```
 
+### Guide shape
+
+Guides are short (one to two pages) and use no rule keywords:
+
+```markdown
+# <Topic>: The Crux
+
+<one line: what this guide helps you do>
+
+## 1. Principles that matter most
+## 2. … numbered sections …
+## N. Anti-patterns
+## Sources
+```
+
 ### Writing rules
+
+These apply to best-practices files. Guides follow only **Write a rule in one file only**.
+
 
 - **One keyword per bullet.** If a bullet needs a MUST and a SHOULD, split it.
 - **Every MUST and MUST NOT gets a reason**, in a `*Why:*` line or in the same sentence.
@@ -116,5 +160,5 @@ Keep every file in the same shape so agents and people can find things the same 
   - include the imports they use
   - mark bad code with `❌`
   - use the users / projects / tasks example domain
-- **Write a rule in one file only.** If another file needs it, link to the owning file instead of restating it, so the two can't drift apart.
+- **Write a rule in one file only.** If another file needs it, link to the owning file instead of restating it, so the two can't drift apart. A guide links to the best-practices file that owns a rule; it never owns rules itself.
 - **Update the header** (Baseline, Last researched) when you re-check a file against new versions.

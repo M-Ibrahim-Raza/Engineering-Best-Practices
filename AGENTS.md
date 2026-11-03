@@ -1,14 +1,19 @@
-# Engineering Best Practices: agent index
+# Engineering Handbook: agent index
 
-This folder holds the engineering rules for any project that includes it, usually as a git submodule. Each file covers one technology. This index tells you which file to read for a task and how to read the rules.
+This folder holds the engineering handbook for any project that includes it, usually as a git submodule. It has two kinds of files:
 
-**Paths in this file are relative to this file's folder.** If this file was imported from a host project, open the best practices files from the folder this file lives in.
+- `best-practices/`: the engineering rules, one technology per file, written as MUST / SHOULD / MAY rules.
+- `guides/`: short process references, such as going from an idea to a feature list or choosing code quality tools. They have no rule keywords.
+
+This index tells you which file to read for a task and how to read the rules.
+
+**Paths in this file are relative to this file's folder.** If this file was imported from a host project, open the handbook files from the folder this file lives in.
 
 ## How to use these files
 
-1. Find your task in the routing table below and open only the files it lists. Don't load every file: together they are about 265k tokens.
-2. In each file, read **Key rules** first, then only the numbered sections you need.
-3. Before you finish, go through the **PR checklist** of every file you used.
+1. Find your task in the routing table below and open only the files it lists. Don't load every file: together they are about 270k tokens.
+2. In each best-practices file, read **Key rules** first, then only the numbered sections you need. Guides have no Key rules: read the sections the table lists.
+3. Before you finish, go through the **PR checklist** of every best-practices file you used.
 
 ## Routing table
 
