@@ -14,6 +14,7 @@ This folder holds the engineering rules for any project that includes it, usuall
 
 | Task | Read |
 |---|---|
+| Turn a product idea into a feature list, user stories, priorities or acceptance criteria | [feature-engineering.md](guides/feature-engineering.md) §2–6, Definition of Ready §8 |
 | Architecture, design-pattern or error-handling strategy decision | [design-patterns.md](best-practices/design-patterns.md) §1–2, §22 (decision guide) |
 | Any TypeScript code | [typescript.md](best-practices/typescript.md) |
 | Write or validate a Zod schema | [zod.md](best-practices/zod.md) §2 (where to validate), §7–12 |
@@ -61,6 +62,7 @@ This folder holds the engineering rules for any project that includes it, usuall
 | Writing tests | [testing.md](best-practices/testing.md) Key rules, then the "Testing" section of each file you touched · Vitest setup: [testing.md](best-practices/testing.md) §10 · Python: [pytest.md](best-practices/pytest.md) · HTTP tests: [supertest.md](best-practices/supertest.md) · if the project runs Jest: [jest.md](best-practices/jest.md) |
 | Integration test against a database or an external service | [testing.md](best-practices/testing.md) §7–8 · SQLAlchemy: [sqlalchemy.md](best-practices/sqlalchemy.md) §15 · HTTP APIs: [supertest.md](best-practices/supertest.md) |
 | Flaky test, test coverage, or tests in CI | [testing.md](best-practices/testing.md) §12–14 |
+| Choose or set up code quality tools (lint, format, type checks, SAST, secret and dependency scanning) or CI quality gates | [code-quality.md](guides/code-quality.md) §2–6 · coverage and mutation testing: [testing.md](best-practices/testing.md) §9, §12 · required checks and secret scanning: [git.md](best-practices/git.md) §10, §12–13 |
 | Upgrading a dependency | The "Versions" / "Upgrades" section of that technology's file |
 | Commit, branch, PR, release or Git/GitHub workflow | [git.md](best-practices/git.md) Key rules, then the section you need |
 
@@ -95,6 +97,7 @@ When two sources disagree, follow the higher one:
    - nestjs.md, trpc.md and postgresql.md over supertest.md on app wiring and database rules
    - any framework file over typescript.md
 3. **The more general file.**
+4. **Guides.** Files in `guides/` are reference notes, not rules, so any file in `best-practices/` wins over them. For example, uv's dependency cooldown follows uv.md (7 days), not code-quality.md (3 days).
 
 Two exceptions:
 - **API facts:** if the official docs for the installed version disagree with a file about how an API behaves, the docs win. Fix the file in the same PR.
