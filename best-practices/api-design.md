@@ -7,7 +7,7 @@
 
 ## How to use this file
 
-These rules are for anyone designing or changing an HTTP API that other programs call, human or AI agent: REST endpoints served by NestJS, Next.js Route Handlers or a Python service, and the webhooks we send and receive. The file covers the **contract**: URLs, methods, status codes, bodies, headers and docs. The framework files show how to build it. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone designing or changing an HTTP API that other programs call, human or AI agent: REST endpoints served by NestJS, Next.js Route Handlers or a Python service, and the webhooks we send and receive. The file covers the **contract**: URLs, methods, status codes, bodies, headers and docs. The framework files show how to build it. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -15,7 +15,7 @@ These rules are for anyone designing or changing an HTTP API that other programs
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). [nestjs.md](nestjs.md), [trpc.md](trpc.md) and [nextjs.md](nextjs.md) are more specific than this file. If an RFC or the official docs for the installed version disagree with this file about how something behaves, they win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). [nestjs.md](nestjs.md), [trpc.md](trpc.md) and [nextjs.md](nextjs.md) are more specific than this file. If an RFC or the official docs for the installed version disagree with this file about how something behaves, they win; update this file in the same PR.
 
 **Where public guidelines disagree.** Google, Microsoft Azure and Zalando publish good API guidelines that differ on JSON casing, versioning style, `400` vs `422` and null handling. Where they differ, this file picks one option and says so. To choose differently for a project, record it in an ADR.
 

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Validate AGENTS.md's routing table against the actual guide files.
+"""Validate AGENTS.md's routing table and the links between the handbook files.
 
-Checks:
-  1. Every content file in the repo root is linked from AGENTS.md (no orphans).
+Content files live in best-practices/ (rules, one technology per file) and
+guides/ (process references). Checks:
+  1. Every content file is linked from AGENTS.md (no orphans).
   2. Every file AGENTS.md links to actually exists (no dangling links).
   3. Every section reference (e.g. "§4-8", "§11.1") after a link points to a
      heading that actually exists in the target file (no stale section numbers).
+  4. No content files sit in the repo root; they belong in a content folder.
+  5. Every relative .md link in the content files, AGENTS.md and README.md
+     resolves to a file on disk (no links broken by moves or renames).
 
 Exit code is non-zero if any problem is found.
 """
@@ -17,11 +21,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ROOT / "AGENTS.md"
 
-EXCLUDED = {"AGENTS.md", "README.md", "CLAUDE.md", "prompts.md"}
+CONTENT_DIRS = ("best-practices", "guides")
+ROOT_FILES = {"AGENTS.md", "README.md", "CLAUDE.md", "prompts.md"}
 
-LINK_RE = re.compile(r"\[([\w.-]+\.md)\]\(([\w.-]+\.md)\)")
+LINK_RE = re.compile(r"\[([\w.-]+\.md)\]\(([\w.-]+(?:/[\w.-]+)*\.md)\)")
 SECTION_REF_RE = re.compile(r"§(\d+(?:\.\d+)?)(?:[–-](\d+(?:\.\d+)?))?")
 HEADING_RE = re.compile(r"^#{2,3}\s+(\d+(?:\.\d+)?)\b")
+MD_LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 
 def heading_numbers(path: Path) -> set[str]:
@@ -51,10 +58,32 @@ def check_section_refs(segment: str, target: str, numbers: set[str], errors: lis
                 errors.append(f"{target}: §{n} (within §{start}-{end}) has no matching heading")
 
 
+def broken_relative_links(path: Path) -> list[str]:
+    """Relative .md links in `path` (outside code blocks) whose target doesn't exist."""
+    broken = []
+    in_fence = False
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for m in MD_LINK_RE.finditer(line):
+            href = m.group(1).split("#", 1)[0]
+            if not href.endswith(".md") or "://" in href or href.startswith("mailto:"):
+                continue
+            if not (path.parent / href).resolve().exists():
+                broken.append(f"{path.relative_to(ROOT)}:{lineno}: {m.group(1)}")
+    return broken
+
+
 def main() -> int:
     content_files = {
-        p.name for p in ROOT.glob("*.md") if p.name not in EXCLUDED
+        f"{d}/{p.name}" for d in CONTENT_DIRS for p in (ROOT / d).glob("*.md")
     }
+    stray_root_files = sorted(
+        p.name for p in ROOT.glob("*.md") if p.name not in ROOT_FILES
+    )
 
     agents_text = AGENTS.read_text(encoding="utf-8")
     routing_lines = [
@@ -70,7 +99,7 @@ def main() -> int:
     for line in routing_lines:
         for segment in line.split("\xb7"):  # '·'
             for m in LINK_RE.finditer(segment):
-                label, href = m.group(1), m.group(2)
+                href = m.group(2)
                 linked_files.add(href)
                 target_path = ROOT / href
                 if not target_path.exists():
@@ -86,7 +115,15 @@ def main() -> int:
     orphans = sorted(content_files - linked_files)
     dangling = sorted(set(dangling_links) - content_files)
 
+    link_sources = [ROOT / f for f in sorted(content_files)] + [AGENTS, ROOT / "README.md"]
+    broken_links = [b for src in link_sources if src.exists() for b in broken_relative_links(src)]
+
     ok = True
+    if stray_root_files:
+        ok = False
+        print(f"Content files in the repo root (content files belong in {' or '.join(d + '/' for d in CONTENT_DIRS)}):")
+        for f in stray_root_files:
+            print(f"  - {f}")
     if orphans:
         ok = False
         print("Orphan files (not linked from AGENTS.md routing table):")
@@ -102,9 +139,17 @@ def main() -> int:
         print("Stale section references:")
         for e in sorted(set(section_errors)):
             print(f"  - {e}")
+    if broken_links:
+        ok = False
+        print("Broken relative links:")
+        for b in broken_links:
+            print(f"  - {b}")
 
     if ok:
-        print(f"OK: {len(content_files)} guide files, {len(linked_files)} linked, sections check out.")
+        print(
+            f"OK: {len(content_files)} content files, {len(linked_files)} linked, "
+            "sections and relative links check out."
+        )
         return 0
     return 1
 

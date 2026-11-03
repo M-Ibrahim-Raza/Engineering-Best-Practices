@@ -7,7 +7,7 @@
 
 ## How to use this file
 
-These rules are for anyone writing tRPC code in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone writing tRPC code in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -15,7 +15,7 @@ These rules are for anyone writing tRPC code in a project that uses these best p
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR. **tRPC's bundled agent skills are the one exception that goes the other way** (section 20): this file wins where they disagree, because they were written for tRPC 11.16 and some of their examples are wrong for 11.19.0.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR. **tRPC's bundled agent skills are the one exception that goes the other way** (section 20): this file wins where they disagree, because they were written for tRPC 11.16 and some of their examples are wrong for 11.19.0.
 
 Every code sample in this file was type-checked against the baseline versions above, with the strict `tsconfig` from [typescript.md](typescript.md), under TypeScript 6.0.3 and 7.0.2. Rules marked *(checked)* go further: they were confirmed by running tRPC 11.19.0 or by reading the NestJS 12.3.2 source, not only by reading the docs.
 

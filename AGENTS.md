@@ -14,55 +14,55 @@ This folder holds the engineering rules for any project that includes it, usuall
 
 | Task | Read |
 |---|---|
-| Architecture, design-pattern or error-handling strategy decision | [design-patterns.md](design-patterns.md) §1–2, §22 (decision guide) |
-| Any TypeScript code | [typescript.md](typescript.md) |
-| Write or validate a Zod schema | [zod.md](zod.md) §2 (where to validate), §7–12 |
-| New Next.js page, layout or route | [nextjs.md](nextjs.md) §2–4, §9 · [react.md](react.md) §3 |
-| Load data in a Server Component | [nextjs.md](nextjs.md) §5–6 · [react.md](react.md) §7 |
-| Form, mutation or Server Action | [react.md](react.md) §8 · [nextjs.md](nextjs.md) §7–8 · UI: [shadcn.md](shadcn.md) §8 |
-| React component, state or effect | [react.md](react.md) §2–6 |
-| Client-side server state (polling, infinite lists, optimistic updates) | [tanstack-query.md](tanstack-query.md): §1 first, to confirm it's needed |
-| tRPC router, procedure or middleware | [trpc.md](trpc.md) §4–8 · [nestjs.md](nestjs.md) §6, §9 |
-| Call tRPC from React or Next.js | [trpc.md](trpc.md) §13–14 · [tanstack-query.md](tanstack-query.md) §10–12 |
-| NestJS module, controller or service | [nestjs.md](nestjs.md) §3–9 |
-| Design or change a REST/HTTP endpoint | [api-design.md](api-design.md) §2–10 · NestJS: [nestjs.md](nestjs.md) §15 |
-| Send or receive webhooks | [api-design.md](api-design.md) §15 · receiving in Next.js: [nextjs.md](nextjs.md) §14 |
-| Publish or change an OpenAPI document | [api-design.md](api-design.md) §8, §17 |
-| Choose between GraphQL, tRPC and REST | [graphql.md](graphql.md) §1 · [trpc.md](trpc.md) §3 |
-| GraphQL schema, resolver or server | [graphql.md](graphql.md) §3–15 |
-| Call GraphQL from React or Next.js | [graphql.md](graphql.md) §16–17 · [tanstack-query.md](tanstack-query.md) §4–5, §13 |
-| Authentication, authorization or security | [nextjs.md](nextjs.md) §8 · [react.md](react.md) §14 · [nestjs.md](nestjs.md) §10 · [trpc.md](trpc.md) §7 · database: [postgresql.md](postgresql.md) §10 · REST APIs: [api-design.md](api-design.md) §12–13 · GraphQL: [graphql.md](graphql.md) §10–11 |
-| Styling and design tokens | [tailwind.md](tailwind.md) §2–8. If the project uses shadcn/ui, [shadcn.md](shadcn.md) §5–6 first |
-| Add or change a UI component | [shadcn.md](shadcn.md) §4, §7, §14 |
-| Dark mode | [shadcn.md](shadcn.md) §5 if the project uses shadcn/ui, otherwise [tailwind.md](tailwind.md) §7 |
-| Dates and times | [typescript.md](typescript.md) §9 · [trpc.md](trpc.md) §9 · database columns: [postgresql.md](postgresql.md) §3 · time zones, DST, recurring events or events tied to a place: [timezones.md](timezones.md) |
-| SQL query, schema, index or constraint | [postgresql.md](postgresql.md) §2–7 |
-| Database migration or backfill | [postgresql.md](postgresql.md) §8 |
-| Slow query, locking or connection pool | [postgresql.md](postgresql.md) §7, §9 · pool settings: §11 |
-| Database access from Prisma | [prisma.md](prisma.md) §4–12 · connection and pooling: [postgresql.md](postgresql.md) §11.1 |
-| Database access from Drizzle | [drizzle.md](drizzle.md) §4–10 · connection and pooling: [postgresql.md](postgresql.md) §11.1 |
-| SQLAlchemy models, relationships, sessions or queries | [sqlalchemy.md](sqlalchemy.md) §3–8 · engine/pooling: §1–2 |
-| FastAPI endpoint that reads or writes the database | [sqlalchemy.md](sqlalchemy.md) §10 · response shape: [python-pydantic.md](python-pydantic.md) §6 |
-| Database migration with SQLAlchemy/Alembic | [sqlalchemy.md](sqlalchemy.md) §13 · zero-downtime patterns: [postgresql.md](postgresql.md) §8 |
-| Database roles, row level security or Supabase | [postgresql.md](postgresql.md) §10 |
-| Python code | [python-pydantic.md](python-pydantic.md) §1–5 · [uv.md](uv.md) Key rules |
-| uv project setup, dependencies or lockfile | [uv.md](uv.md) §2–6 |
-| Supply-chain security, private indexes, dependency cooldown | [uv.md](uv.md) §7–8 |
-| Python CI workflow or Docker image | [uv.md](uv.md) §14–15 |
-| Standalone Python script | [uv.md](uv.md) §11 |
-| Build or publish a Python package | [uv.md](uv.md) §13 |
-| Upgrading uv | [uv.md](uv.md) §0 |
-| Pydantic models, validation or settings | [python-pydantic.md](python-pydantic.md) §6–12 · settings: [environment-configuration.md](environment-configuration.md) §8–11 |
-| Environment variables, `.env` files or secrets | [environment-configuration.md](environment-configuration.md) §2–4, then Next.js §5–7, Python §8–11, NestJS and Node §12 |
-| Logging, log messages, request IDs, redacting secrets | [logging.md](logging.md) §1 · Python: §2 · Node, NestJS, Next.js: §3 |
-| Audit log, "who did what" records, security event logging | [logging.md](logging.md) §4 |
-| HTTP / API integration (e2e) tests with Supertest | [supertest.md](supertest.md) Key rules, §3, §5–6 · NestJS app setup: [nestjs.md](nestjs.md) §17 · tRPC over HTTP: [trpc.md](trpc.md) §19 |
-| Jest config, mocks, fake timers, snapshots or coverage | [jest.md](jest.md) Key rules, then §2 config · §3 TypeScript · §7 mocks · §8 timers · §10 snapshots · §14 coverage |
-| Writing tests | [testing.md](testing.md) Key rules, then the "Testing" section of each file you touched · Vitest setup: [testing.md](testing.md) §10 · Python: [pytest.md](pytest.md) · HTTP tests: [supertest.md](supertest.md) · if the project runs Jest: [jest.md](jest.md) |
-| Integration test against a database or an external service | [testing.md](testing.md) §7–8 · SQLAlchemy: [sqlalchemy.md](sqlalchemy.md) §15 · HTTP APIs: [supertest.md](supertest.md) |
-| Flaky test, test coverage, or tests in CI | [testing.md](testing.md) §12–14 |
+| Architecture, design-pattern or error-handling strategy decision | [design-patterns.md](best-practices/design-patterns.md) §1–2, §22 (decision guide) |
+| Any TypeScript code | [typescript.md](best-practices/typescript.md) |
+| Write or validate a Zod schema | [zod.md](best-practices/zod.md) §2 (where to validate), §7–12 |
+| New Next.js page, layout or route | [nextjs.md](best-practices/nextjs.md) §2–4, §9 · [react.md](best-practices/react.md) §3 |
+| Load data in a Server Component | [nextjs.md](best-practices/nextjs.md) §5–6 · [react.md](best-practices/react.md) §7 |
+| Form, mutation or Server Action | [react.md](best-practices/react.md) §8 · [nextjs.md](best-practices/nextjs.md) §7–8 · UI: [shadcn.md](best-practices/shadcn.md) §8 |
+| React component, state or effect | [react.md](best-practices/react.md) §2–6 |
+| Client-side server state (polling, infinite lists, optimistic updates) | [tanstack-query.md](best-practices/tanstack-query.md): §1 first, to confirm it's needed |
+| tRPC router, procedure or middleware | [trpc.md](best-practices/trpc.md) §4–8 · [nestjs.md](best-practices/nestjs.md) §6, §9 |
+| Call tRPC from React or Next.js | [trpc.md](best-practices/trpc.md) §13–14 · [tanstack-query.md](best-practices/tanstack-query.md) §10–12 |
+| NestJS module, controller or service | [nestjs.md](best-practices/nestjs.md) §3–9 |
+| Design or change a REST/HTTP endpoint | [api-design.md](best-practices/api-design.md) §2–10 · NestJS: [nestjs.md](best-practices/nestjs.md) §15 |
+| Send or receive webhooks | [api-design.md](best-practices/api-design.md) §15 · receiving in Next.js: [nextjs.md](best-practices/nextjs.md) §14 |
+| Publish or change an OpenAPI document | [api-design.md](best-practices/api-design.md) §8, §17 |
+| Choose between GraphQL, tRPC and REST | [graphql.md](best-practices/graphql.md) §1 · [trpc.md](best-practices/trpc.md) §3 |
+| GraphQL schema, resolver or server | [graphql.md](best-practices/graphql.md) §3–15 |
+| Call GraphQL from React or Next.js | [graphql.md](best-practices/graphql.md) §16–17 · [tanstack-query.md](best-practices/tanstack-query.md) §4–5, §13 |
+| Authentication, authorization or security | [nextjs.md](best-practices/nextjs.md) §8 · [react.md](best-practices/react.md) §14 · [nestjs.md](best-practices/nestjs.md) §10 · [trpc.md](best-practices/trpc.md) §7 · database: [postgresql.md](best-practices/postgresql.md) §10 · REST APIs: [api-design.md](best-practices/api-design.md) §12–13 · GraphQL: [graphql.md](best-practices/graphql.md) §10–11 |
+| Styling and design tokens | [tailwind.md](best-practices/tailwind.md) §2–8. If the project uses shadcn/ui, [shadcn.md](best-practices/shadcn.md) §5–6 first |
+| Add or change a UI component | [shadcn.md](best-practices/shadcn.md) §4, §7, §14 |
+| Dark mode | [shadcn.md](best-practices/shadcn.md) §5 if the project uses shadcn/ui, otherwise [tailwind.md](best-practices/tailwind.md) §7 |
+| Dates and times | [typescript.md](best-practices/typescript.md) §9 · [trpc.md](best-practices/trpc.md) §9 · database columns: [postgresql.md](best-practices/postgresql.md) §3 · time zones, DST, recurring events or events tied to a place: [timezones.md](best-practices/timezones.md) |
+| SQL query, schema, index or constraint | [postgresql.md](best-practices/postgresql.md) §2–7 |
+| Database migration or backfill | [postgresql.md](best-practices/postgresql.md) §8 |
+| Slow query, locking or connection pool | [postgresql.md](best-practices/postgresql.md) §7, §9 · pool settings: §11 |
+| Database access from Prisma | [prisma.md](best-practices/prisma.md) §4–12 · connection and pooling: [postgresql.md](best-practices/postgresql.md) §11.1 |
+| Database access from Drizzle | [drizzle.md](best-practices/drizzle.md) §4–10 · connection and pooling: [postgresql.md](best-practices/postgresql.md) §11.1 |
+| SQLAlchemy models, relationships, sessions or queries | [sqlalchemy.md](best-practices/sqlalchemy.md) §3–8 · engine/pooling: §1–2 |
+| FastAPI endpoint that reads or writes the database | [sqlalchemy.md](best-practices/sqlalchemy.md) §10 · response shape: [python-pydantic.md](best-practices/python-pydantic.md) §6 |
+| Database migration with SQLAlchemy/Alembic | [sqlalchemy.md](best-practices/sqlalchemy.md) §13 · zero-downtime patterns: [postgresql.md](best-practices/postgresql.md) §8 |
+| Database roles, row level security or Supabase | [postgresql.md](best-practices/postgresql.md) §10 |
+| Python code | [python-pydantic.md](best-practices/python-pydantic.md) §1–5 · [uv.md](best-practices/uv.md) Key rules |
+| uv project setup, dependencies or lockfile | [uv.md](best-practices/uv.md) §2–6 |
+| Supply-chain security, private indexes, dependency cooldown | [uv.md](best-practices/uv.md) §7–8 |
+| Python CI workflow or Docker image | [uv.md](best-practices/uv.md) §14–15 |
+| Standalone Python script | [uv.md](best-practices/uv.md) §11 |
+| Build or publish a Python package | [uv.md](best-practices/uv.md) §13 |
+| Upgrading uv | [uv.md](best-practices/uv.md) §0 |
+| Pydantic models, validation or settings | [python-pydantic.md](best-practices/python-pydantic.md) §6–12 · settings: [environment-configuration.md](best-practices/environment-configuration.md) §8–11 |
+| Environment variables, `.env` files or secrets | [environment-configuration.md](best-practices/environment-configuration.md) §2–4, then Next.js §5–7, Python §8–11, NestJS and Node §12 |
+| Logging, log messages, request IDs, redacting secrets | [logging.md](best-practices/logging.md) §1 · Python: §2 · Node, NestJS, Next.js: §3 |
+| Audit log, "who did what" records, security event logging | [logging.md](best-practices/logging.md) §4 |
+| HTTP / API integration (e2e) tests with Supertest | [supertest.md](best-practices/supertest.md) Key rules, §3, §5–6 · NestJS app setup: [nestjs.md](best-practices/nestjs.md) §17 · tRPC over HTTP: [trpc.md](best-practices/trpc.md) §19 |
+| Jest config, mocks, fake timers, snapshots or coverage | [jest.md](best-practices/jest.md) Key rules, then §2 config · §3 TypeScript · §7 mocks · §8 timers · §10 snapshots · §14 coverage |
+| Writing tests | [testing.md](best-practices/testing.md) Key rules, then the "Testing" section of each file you touched · Vitest setup: [testing.md](best-practices/testing.md) §10 · Python: [pytest.md](best-practices/pytest.md) · HTTP tests: [supertest.md](best-practices/supertest.md) · if the project runs Jest: [jest.md](best-practices/jest.md) |
+| Integration test against a database or an external service | [testing.md](best-practices/testing.md) §7–8 · SQLAlchemy: [sqlalchemy.md](best-practices/sqlalchemy.md) §15 · HTTP APIs: [supertest.md](best-practices/supertest.md) |
+| Flaky test, test coverage, or tests in CI | [testing.md](best-practices/testing.md) §12–14 |
 | Upgrading a dependency | The "Versions" / "Upgrades" section of that technology's file |
-| Commit, branch, PR, release or Git/GitHub workflow | [git.md](git.md) Key rules, then the section you need |
+| Commit, branch, PR, release or Git/GitHub workflow | [git.md](best-practices/git.md) Key rules, then the section you need |
 
 ## Rule keywords
 
@@ -102,7 +102,7 @@ Two exceptions:
 
 ## Runtime baseline
 
-[typescript.md](typescript.md) §1 owns the project's Node.js and TypeScript versions. Other files may mention a framework's own minimum versions; those are for information, not the project's target.
+[typescript.md](best-practices/typescript.md) §1 owns the project's Node.js and TypeScript versions. Other files may mention a framework's own minimum versions; those are for information, not the project's target.
 
 ## Examples
 

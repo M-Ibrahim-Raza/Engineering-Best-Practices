@@ -576,11 +576,11 @@ GRANT EXECUTE ON FUNCTION public.close_project(bigint) TO authenticated;
 
 ### 11.2 Prisma
 
-[prisma.md](prisma.md) is the full reference for Prisma — schema design, migrations, querying, transactions, raw SQL safety, multi-tenancy and testing. The connection and pooling rules in [§11.1](#111-connection-and-pooling) above apply to Prisma too; where the two disagree on anything Prisma-specific, prisma.md wins (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
+[prisma.md](prisma.md) is the full reference for Prisma — schema design, migrations, querying, transactions, raw SQL safety, multi-tenancy and testing. The connection and pooling rules in [§11.1](#111-connection-and-pooling) above apply to Prisma too; where the two disagree on anything Prisma-specific, prisma.md wins (see [AGENTS.md § Precedence](../AGENTS.md#precedence)).
 
 ### 11.3 SQLAlchemy, psycopg and asyncpg
 
-[sqlalchemy.md](sqlalchemy.md) is the full reference for SQLAlchemy — models, relationships, sessions, migrations, FastAPI integration and testing. The rules below are the Postgres-connection facts that file assumes; where the two disagree, sqlalchemy.md wins for anything SQLAlchemy-specific (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
+[sqlalchemy.md](sqlalchemy.md) is the full reference for SQLAlchemy — models, relationships, sessions, migrations, FastAPI integration and testing. The rules below are the Postgres-connection facts that file assumes; where the two disagree, sqlalchemy.md wins for anything SQLAlchemy-specific (see [AGENTS.md § Precedence](../AGENTS.md#precedence)).
 
 - **MUST** use `text("... WHERE id = :id")` with a parameters dict or `.bindparams()`. *Why:* that is injectable. SQLAlchemy 2.1 adds `tstring()` for Python 3.14 t-strings, which binds interpolated values.
 - **MUST NOT** build SQL with f-strings or `%`. *Why:* that is injectable. SQLAlchemy 2.1 adds `tstring()` for Python 3.14 t-strings, which binds interpolated values.

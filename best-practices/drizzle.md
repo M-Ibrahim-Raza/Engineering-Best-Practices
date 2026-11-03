@@ -17,7 +17,7 @@ This file is a set of instructions for anyone writing Drizzle code in this repo,
 
 Drizzle sits between files that already exist. Their rules still apply, and this file only adds what is specific to Drizzle:
 
-- [postgresql.md](postgresql.md): the SQL-level facts this file assumes — data types and constraints (§3–4), indexing (§5), transactions and locking (§7), zero-downtime migrations (§8), and security/RLS (§10). Where the two disagree on plain Postgres (not Drizzle's API), postgresql.md wins ([AGENTS.md § Precedence](AGENTS.md#precedence)).
+- [postgresql.md](postgresql.md): the SQL-level facts this file assumes — data types and constraints (§3–4), indexing (§5), transactions and locking (§7), zero-downtime migrations (§8), and security/RLS (§10). Where the two disagree on plain Postgres (not Drizzle's API), postgresql.md wins ([AGENTS.md § Precedence](../AGENTS.md#precedence)).
 - [nestjs.md §11](nestjs.md#11-database--persistence): the project-wide service-layer rules (transaction boundaries, pagination, keeping queries in repositories) that this file makes Drizzle-specific. For migrations, constraints and pooling, nestjs.md §11 itself defers to postgresql.md, above.
 - [nextjs.md §8.2](nextjs.md#82-data-access-layer-and-dtos): the Data Access Layer Drizzle's Next.js client lives inside.
 - [trpc.md](trpc.md): when a tRPC procedure's service method calls into Drizzle, [trpc.md §4](trpc.md#4-routers--procedures) and [§8](trpc.md#8-errors) govern the procedure; this file governs the query underneath it.

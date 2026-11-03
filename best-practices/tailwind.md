@@ -7,7 +7,7 @@
 
 ## How to use this file
 
-These rules are for anyone writing styles with Tailwind CSS in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone writing styles with Tailwind CSS in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -15,7 +15,7 @@ These rules are for anyone writing styles with Tailwind CSS in a project that us
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
 
 **If the project uses shadcn/ui,** [shadcn.md](shadcn.md) wins on: the `cn()` helper, component files and variants, dark-mode setup, `globals.css` imports and tokens, open/closed state variants, long-form text styling and fonts. Each section where the two differ starts with a one-line pointer.
 

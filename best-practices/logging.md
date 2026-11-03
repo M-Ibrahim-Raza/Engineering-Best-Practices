@@ -19,7 +19,7 @@ This file is a set of instructions for anyone writing logging code in this repo,
 If official docs for the installed version disagree with this file about how an API behaves, the docs win. Fix this file in the same PR.
 
 Notes on the examples:
-- They use the project-management domain from [AGENTS.md](AGENTS.md): users, projects, tasks.
+- They use the project-management domain from [AGENTS.md](../AGENTS.md): users, projects, tasks.
 - The first comment of an example gives its file path. Blocks marked `❌` show what not to do.
 - The Python and Node examples produce **the same JSON shape** ([§1.4](#14-the-log-line)). Keep it that way.
 

@@ -8,7 +8,7 @@
 
 ## How to use this file
 
-These rules are for anyone who writes HTTP tests with Supertest in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone who writes HTTP tests with Supertest in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -16,7 +16,7 @@ These rules are for anyone who writes HTTP tests with Supertest in a project tha
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
 
 This file owns **how to write HTTP tests with Supertest**: building requests, assertions, auth, test data and network mocks. Framework files own how each app boots in a test: [nestjs.md §17](nestjs.md#17-testing) (`setupApp()`, the testing module, overriding providers) and [trpc.md §19](trpc.md#19-testing) (procedure URLs and wire format). If one of them disagrees with this file about wiring, the framework file wins. On the Supertest and superagent API, this file wins.
 

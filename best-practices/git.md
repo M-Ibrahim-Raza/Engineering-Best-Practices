@@ -3,11 +3,11 @@
 > **Baseline:** Git **2.56** (minimum **2.50.1**) · GitHub.com (rulesets, merge queue, native stacked PRs) · trunk-based development / GitHub flow
 > **Last researched:** 2026-10-31, from git-scm.com, the Git release notes, docs.github.com and the GitHub changelog (see [Sources](#22-sources)).
 > **Re-check when:** Git or GitHub ships a feature release: sections 0, 1, 9, 10 and 15. Re-check the whole file when Git 3.0 ships.
-> **Related:** [environment-configuration.md](environment-configuration.md) (`.env` files and secrets), [README.md](README.md) (adding this repo to a project as a submodule).
+> **Related:** [environment-configuration.md](environment-configuration.md) (`.env` files and secrets), [README.md](../README.md) (adding this repo to a project as a submodule).
 
 ## How to use this file
 
-These rules are for anyone using Git and GitHub in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone using Git and GitHub in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -15,7 +15,7 @@ These rules are for anyone using Git and GitHub in a project that uses these bes
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official Git or GitHub docs for the installed version disagree with this file about how a command or setting behaves, the docs win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). If the official Git or GitHub docs for the installed version disagree with this file about how a command or setting behaves, the docs win; update this file in the same PR.
 
 ## Key rules
 
@@ -880,7 +880,7 @@ repos:
 A submodule pins another repo at an exact commit inside yours.
 
 - **SHOULD** prefer a package (npm, PyPI, a private registry) for code you import.
-- **MAY** use a submodule for shared content that isn't a package (docs, configs, this best-practices repo), or for vendored code you must build from source.
+- **MAY** use a submodule for shared content that isn't a package (docs, configs, this handbook repo), or for vendored code you must build from source.
 - **SHOULD NOT** use submodules for code that changes together with the parent repo. That belongs in a monorepo.
 - **MAY** use `git subtree` instead when consumers shouldn't need to know about submodules. The trade-off is copying history into the parent.
 
@@ -938,20 +938,20 @@ rm -rf .git/modules/vendor/shared-config
     token: ${{ secrets.SUBMODULES_TOKEN }}
 ```
 
-### 16.5 Using this best-practices repo as a submodule
+### 16.5 Using this handbook repo as a submodule
 
 ```bash
 # Add it once per project
-git submodule add -b main https://github.com/<owner>/<best-practices-repo>.git docs/best-practices
-git commit -m "docs: add engineering best practices submodule"
+git submodule add -b main https://github.com/<owner>/<engineering-handbook-repo>.git docs/engineering-handbook
+git commit -m "docs: add engineering handbook submodule"
 
 # Pull in the latest rules (open a PR for it like any other change)
-git submodule update --remote docs/best-practices
-git add docs/best-practices
-git commit -m "docs: update engineering best practices"
+git submodule update --remote docs/engineering-handbook
+git add docs/engineering-handbook
+git commit -m "docs: update engineering handbook"
 ```
 
-Then point your agents at the index, as described in [README.md](README.md#using-this-repo-in-a-project). Add `@docs/best-practices/AGENTS.md` to the project's `CLAUDE.md`, or add a line to its `AGENTS.md` telling agents to read `docs/best-practices/AGENTS.md`.
+Then point your agents at the index, as described in [README.md](../README.md#using-this-repo-in-a-project). Add `@docs/engineering-handbook/AGENTS.md` to the project's `CLAUDE.md`, or add a line to its `AGENTS.md` telling agents to read `docs/engineering-handbook/AGENTS.md`.
 
 **SHOULD** import only that index, not the individual files. The files together are large, and the index tells agents which one to open for a task.
 
@@ -1025,7 +1025,7 @@ Permission patterns match command prefixes, so they can be worked around: `git p
 
 ```markdown
 ## Git
-- Rules: docs/best-practices/git.md
+- Rules: docs/engineering-handbook/best-practices/git.md
 - Branch from main: <type>/<ticket>-<desc> (agents: claude/<ticket>-<desc>)
 - Conventional Commits; PR title = squash commit
 - Before pushing: npm run lint && npm run typecheck && npm test

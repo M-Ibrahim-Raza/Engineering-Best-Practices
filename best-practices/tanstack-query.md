@@ -7,7 +7,7 @@
 
 ## How to use this file
 
-These rules are for anyone writing TanStack Query code in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone writing TanStack Query code in a project that uses these best practices, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -15,7 +15,7 @@ These rules are for anyone writing TanStack Query code in a project that uses th
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
 
 TanStack Query is **opt-in**: [react.md §4.2](react.md#42-where-state-lives) and [nextjs.md §6](nextjs.md#6-data-fetching) make Server Components the default way to load data. This file covers the React adapter (`@tanstack/react-query`) inside the Next.js App Router, and applies once a feature has a reason to use TanStack Query (section 1).
 

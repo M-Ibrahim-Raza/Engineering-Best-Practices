@@ -8,7 +8,7 @@
 
 ## How to use this file
 
-These rules are for anyone who writes or reviews unit and integration tests, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone who writes or reviews unit and integration tests, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -17,7 +17,7 @@ These rules are for anyone who writes or reviews unit and integration tests, hum
 | **AVOID** | Don't, unless there is a clear, documented reason. |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). If the official docs for the installed version disagree with this file about how an API behaves, the docs win; update this file in the same PR.
 
 This file owns **how to test in general**: what to test, how to write a test, test data, test doubles, determinism, integration tests against databases and external services, the Vitest and pytest setup, coverage, flaky tests, tests in CI, and tests written by AI agents. Other files own these topics:
 
@@ -44,7 +44,7 @@ This file owns **how to test in general**: what to test, how to write a test, te
 
 If a framework or tool file in this table and this one disagree about that framework's or tool's API, that file wins. If they disagree about general testing practice, this file wins.
 
-**Notes on the examples:** they use the example domain from [AGENTS.md](AGENTS.md#examples): users, projects and tasks. TypeScript code lives in `src/`, shared test helpers in `test/`. Python code is the `app/` package, with tests in `tests/unit/` and `tests/integration/`. Create these folders if your project doesn't have them; `src/db/migrate.ts` and `alembic.ini` stand for your project's migration runner. Rules marked *(checked)* were confirmed by running the code with the versions in the Baseline, not only by reading the docs. *(our rule)* marks a team convention where the sources give no single number.
+**Notes on the examples:** they use the example domain from [AGENTS.md](../AGENTS.md#examples): users, projects and tasks. TypeScript code lives in `src/`, shared test helpers in `test/`. Python code is the `app/` package, with tests in `tests/unit/` and `tests/integration/`. Create these folders if your project doesn't have them; `src/db/migrate.ts` and `alembic.ini` stand for your project's migration runner. Rules marked *(checked)* were confirmed by running the code with the versions in the Baseline, not only by reading the docs. *(our rule)* marks a team convention where the sources give no single number.
 
 ## Key rules
 
@@ -904,7 +904,7 @@ Agents write tests quickly, and the tests look plausible. A July 2026 study of 1
 
 ```markdown
 ## Tests
-- Rules: docs/best-practices/testing.md
+- Rules: docs/engineering-handbook/best-practices/testing.md
 - Unit: `npx vitest run --project unit` · Integration (needs Docker): `npx vitest run --project integration`
 - Python: `uv run pytest tests/unit` · `uv run pytest tests/integration`
 - Write the failing test first and show it failing. Never delete, skip or weaken a test to make it pass; ask instead.

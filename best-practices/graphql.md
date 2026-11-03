@@ -7,7 +7,7 @@
 
 ## How to use this file
 
-These rules are for anyone designing a GraphQL schema, writing resolvers or calling a GraphQL API, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](AGENTS.md) explains how the files fit together.
+These rules are for anyone designing a GraphQL schema, writing resolvers or calling a GraphQL API, human or AI agent. Read **Key rules** first, then the sections you need. [AGENTS.md](../AGENTS.md) explains how the files fit together.
 
 | Keyword | Meaning |
 | --- | --- |
@@ -15,7 +15,7 @@ These rules are for anyone designing a GraphQL schema, writing resolvers or call
 | **SHOULD** / **SHOULD NOT** | The default. If you deviate, add a one-line code comment saying why (or say why in the PR description if the change isn't tied to one spot). |
 | **MAY** | Allowed when it helps; not required. |
 
-**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](AGENTS.md#precedence)). This file wins over [tanstack-query.md](tanstack-query.md) and [nestjs.md](nestjs.md) where GraphQL needs something different. If the docs of your GraphQL server library, for the installed version, disagree with this file about how an API behaves, the docs win; update this file in the same PR.
+**When rules conflict:** a decision recorded in the project (an ADR, the project's `CLAUDE.md` or `AGENTS.md`, a ticket) wins over this file, and a more specific file wins over a more general one ([AGENTS.md § Precedence](../AGENTS.md#precedence)). This file wins over [tanstack-query.md](tanstack-query.md) and [nestjs.md](nestjs.md) where GraphQL needs something different. If the docs of your GraphQL server library, for the installed version, disagree with this file about how an API behaves, the docs win; update this file in the same PR.
 
 **This file doesn't pick a server library.** The rules hold for any spec-compliant server: Apollo Server, GraphQL Yoga, Mercurius, or a NestJS GraphQL driver. Server examples are SDL plus resolver maps (`{ Query: { … }, Task: { … } }`), the shape all of them accept. Where a library has its own switch for a rule, the rule names it ("Apollo: …, Yoga: …"). The client standard is **TanStack Query + GraphQL Codegen** (§17).
 
