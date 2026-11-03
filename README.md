@@ -5,8 +5,6 @@ Shared engineering knowledge for our projects, written so that both developers a
 - **Best practices** (`best-practices/`): the rules. Each file covers one technology and uses MUST / SHOULD / MAY rules.
 - **Guides** (`guides/`): short process references, such as going from an idea to a feature list or choosing code quality tools.
 
-This repo was called Engineering-Best-Practices until November 2026. GitHub redirects the old URL.
-
 ## Folder structure
 
 ```text
@@ -84,8 +82,6 @@ Guides are reference notes, not rules. When a guide and a best-practices file di
 3. To record a project-specific exception, write an ADR or add a note to the project's `CLAUDE.md` / `AGENTS.md`. Project decisions override these files (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
 
 4. To pick up new rules, run `git submodule update --remote docs/engineering-handbook`.
-
-5. **Added it under the old name?** Point the submodule at the new URL with `git submodule set-url <submodule-path> <repo-url>`. Imports of `AGENTS.md` keep working, because its links are relative. Direct links to a single file need the new `best-practices/` folder in their path, for example `docs/best-practices/best-practices/git.md`.
 
 ## Reading the rules
 
