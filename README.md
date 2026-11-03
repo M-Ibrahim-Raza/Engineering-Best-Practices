@@ -130,7 +130,7 @@ Keep every file of a kind in the same shape so agents and people can find things
 Guides are short (one to two pages) and use no rule keywords:
 
 ```markdown
-# <Topic>: The Crux
+# <Topic>
 
 <one line: what this guide helps you do>
 

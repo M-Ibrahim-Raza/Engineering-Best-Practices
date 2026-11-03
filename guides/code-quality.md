@@ -1,4 +1,4 @@
-# Code Quality: The Crux
+# Code Quality
 
 The tools and habits that keep a TypeScript + Python codebase healthy, and what to pick for Next.js, NestJS and uv/pytest/Pydantic apps on GitHub.
 

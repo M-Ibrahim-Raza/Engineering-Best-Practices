@@ -1,4 +1,4 @@
-# Feature Engineering & Requirements: The Crux
+# Feature Engineering & Requirements
 
 The fastest reliable way to go from an idea to a feature list you can build and test.
 
