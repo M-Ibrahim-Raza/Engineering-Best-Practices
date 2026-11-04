@@ -1,0 +1,8 @@
+{
+  "name": "handbook",
+  "description": "Manual-only commands that load just the handbook sections a task needs: /handbook:rules, /handbook:review, /handbook:init",
+  "author": { "name": "M-Ibrahim-Raza" },
+  "homepage": "https://github.com/M-Ibrahim-Raza/Engineering-Handbook",
+  "repository": "https://github.com/M-Ibrahim-Raza/Engineering-Handbook",
+  "keywords": ["best-practices", "engineering-handbook", "skills"]
+}

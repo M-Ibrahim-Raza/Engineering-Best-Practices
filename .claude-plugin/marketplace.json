@@ -1,0 +1,13 @@
+{
+  "name": "engineering-handbook",
+  "description": "Engineering Handbook: best-practices rules that load only when you ask for them",
+  "owner": { "name": "M-Ibrahim-Raza" },
+  "plugins": [
+    {
+      "name": "handbook",
+      "description": "Manual-only commands that load just the handbook sections a task needs: /handbook:rules, /handbook:review, /handbook:init",
+      "source": "./",
+      "homepage": "https://github.com/M-Ibrahim-Raza/Engineering-Handbook"
+    }
+  ]
+}
