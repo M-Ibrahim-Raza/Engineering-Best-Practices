@@ -1,6 +1,6 @@
 # Engineering Handbook: agent index
 
-This folder holds the engineering handbook for any project that includes it, usually as a git submodule. It has two kinds of files:
+This folder holds the engineering handbook. Projects use it through the `handbook` Claude Code plugin ([SETUP.md](SETUP.md)): the developer runs `/handbook:rules`, which loads only the sections a task needs. It has two kinds of files:
 
 - `best-practices/`: the engineering rules, one technology per file, written as MUST / SHOULD / MAY rules.
 - `guides/`: short process references, such as going from an idea to a feature list or choosing code quality tools. They have no rule keywords.

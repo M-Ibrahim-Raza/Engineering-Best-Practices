@@ -9,11 +9,15 @@ Shared engineering knowledge for our projects, written so that both developers a
 
 ```text
 AGENTS.md          Index for AI agents: which file to read for a task, rule keywords, precedence, glossary
-CLAUDE.md          Imports AGENTS.md for Claude Code
+CLAUDE.md          Imports AGENTS.md for Claude Code (only when you work on this repo)
 README.md          This file
+SETUP.md           How to install the plugin and set up a project
+.claude-plugin/    Plugin and marketplace manifests (plugin "handbook", marketplace "engineering-handbook")
+skills/            The plugin's manual-only commands: rules, review, init
 best-practices/    One file per technology, written as MUST / SHOULD / MAY rules
 guides/            Process references, without rule keywords
-scripts/           check_docs.py: checks AGENTS.md routing, section references and links (runs in CI)
+scripts/           handbook.py: prints routes, sections and checklists for the commands
+                   check_docs.py: checks AGENTS.md routing, section references and links (runs in CI)
 ```
 
 ## Best practices
@@ -58,30 +62,18 @@ Guides are reference notes, not rules. When a guide and a best-practices file di
 
 ## Using this repo in a project
 
-1. Add it as a submodule:
+This repo is a Claude Code plugin. Its commands are manual only, so nothing from the handbook loads until you type one, and each command loads only the sections a task needs from the files the project uses. Full steps: [SETUP.md](SETUP.md).
 
-   ```bash
-   git submodule add <repo-url> docs/engineering-handbook
-   ```
+```text
+/plugin install handbook --marketplace M-Ibrahim-Raza/Engineering-Handbook   once per machine
+/handbook:init                                                               once per project: writes .claude/handbook.json
+/handbook:rules <task>                                                       load only the rules a task needs, then do it
+/handbook:review                                                             check your changes against the PR checklists
+```
 
-2. Point your agents at the index.
-   - **Claude Code:** add this line to the project's `CLAUDE.md`:
+Don't import `AGENTS.md` or any handbook file into a project's `CLAUDE.md`: that loads it in every session.
 
-     ```markdown
-     @docs/engineering-handbook/AGENTS.md
-     ```
-
-   - **Other agents** that read `AGENTS.md` (Codex, Cursor and others): add this line to the project's `AGENTS.md`:
-
-     ```markdown
-     Before writing code, read docs/engineering-handbook/AGENTS.md and follow the files it points to.
-     ```
-
-   Import only the index, not the individual files. The index is small; the files together are about 270k tokens, and agents load only the ones a task needs.
-
-3. To record a project-specific exception, write an ADR or add a note to the project's `CLAUDE.md` / `AGENTS.md`. Project decisions override these files (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
-
-4. To pick up new rules, run `git submodule update --remote docs/engineering-handbook`.
+To record a project-specific exception, write an ADR or add a note to the project's `CLAUDE.md` / `AGENTS.md`. Project decisions override these files (see [AGENTS.md § Precedence](AGENTS.md#precedence)).
 
 ## Reading the rules
 

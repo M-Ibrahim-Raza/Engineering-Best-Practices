@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ROOT / "AGENTS.md"
 
 CONTENT_DIRS = ("best-practices", "guides")
-ROOT_FILES = {"AGENTS.md", "README.md", "CLAUDE.md", "prompts.md"}
+ROOT_FILES = {"AGENTS.md", "README.md", "CLAUDE.md", "SETUP.md", "prompts.md"}
 
 LINK_RE = re.compile(r"\[([\w.-]+\.md)\]\(([\w.-]+(?:/[\w.-]+)*\.md)\)")
 SECTION_REF_RE = re.compile(r"§(\d+(?:\.\d+)?)(?:[–-](\d+(?:\.\d+)?))?")
@@ -115,7 +115,7 @@ def main() -> int:
     orphans = sorted(content_files - linked_files)
     dangling = sorted(set(dangling_links) - content_files)
 
-    link_sources = [ROOT / f for f in sorted(content_files)] + [AGENTS, ROOT / "README.md"]
+    link_sources = [ROOT / f for f in sorted(content_files)] + [AGENTS, ROOT / "README.md", ROOT / "SETUP.md"]
     broken_links = [b for src in link_sources if src.exists() for b in broken_relative_links(src)]
 
     ok = True
