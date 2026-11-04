@@ -32,6 +32,24 @@ Notes on the examples:
 
 ---
 
+## Key rules
+
+- **MUST** have one `PrismaClient` per process, created in the one `createPrismaClient` factory. Never create one per request, per module or inside a handler ([§1](#1-reference-setup)).
+- **MUST** use `@db.Timestamptz(3)` on every `DateTime`: Prisma's default `timestamp(3)` has no time zone ([§4](#4-schema-design)).
+- **MUST** add `@@index` on every foreign-key column: Prisma doesn't index foreign keys on PostgreSQL ([§4](#4-schema-design)).
+- **MUST NOT** edit a migration after it has been applied anywhere shared. Fix forward with a new migration ([§6](#6-migrations)).
+- **MUST** turn a column rename into `ALTER TABLE ... RENAME COLUMN` by editing the SQL: Prisma's default drop plus add destroys the data ([§6](#6-migrations)).
+- **MUST** set the session `TimeZone` to UTC (`-c TimeZone=UTC`). Otherwise `@prisma/adapter-pg` silently stores `timestamptz` values shifted when the database or role default isn't UTC ([§7](#7-connections-pooling--lifecycle)).
+- **MUST** bound every `findMany` with `take` and a stable, unique-tiebroken `orderBy` ([§8](#8-reading-data)).
+- **MUST NOT** spread a request body into `data`. Validate it with Zod and pass the fields one by one ([§9](#9-writing-data)).
+- **MUST** guard `undefined` in every `where`: Prisma ignores a key whose value is `undefined`, so the filter can match the whole table ([§9](#9-writing-data)).
+- **MUST** keep transactions short: no HTTP calls, email or queue publishes inside ([§10](#10-transactions--concurrency)).
+- **MUST NOT** put a Prisma error message into a response. Keep the original error as `{ cause }` ([§11](#11-errors)).
+- **MUST NOT** use `$queryRawUnsafe`, `$executeRawUnsafe` or `Prisma.raw()` with anything a user can influence. Use the tagged template forms (`` $queryRaw`...` ``), which bind values as parameters ([§12](#12-raw-sql--typedsql)).
+- **MUST** scope every query by the tenant in `where`, including `update`, `delete` and by-id lookups. Take the tenant from the verified session, never from the request body ([§15](#15-security--multi-tenancy)).
+- **MUST** run integration tests against a real PostgreSQL built with `prisma migrate deploy`, not `db push`, which skips your hand-written constraints ([§17](#17-testing)).
+- **MUST NOT** (agents) run `prisma migrate reset`, `prisma db push --accept-data-loss`, `prisma migrate resolve`, or any command against a database that isn't a local throwaway one, without the user's explicit, written consent in that message ([§18](#18-ai-agents--tooling)).
+
 ## Contents
 
 - [Prisma Best Practices](#prisma-best-practices)

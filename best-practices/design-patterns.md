@@ -33,6 +33,24 @@ tx { … }                                       // one database transaction
 
 ---
 
+## Key rules
+
+- **MUST** add a pattern, layer or interface only to solve a problem you have today ([§1](#1-core-principles-when-to-use-a-pattern)).
+- **MUST** model lifecycle state as a tagged union, where each variant holds only the fields valid in that state ([§5.1](#51-make-illegal-states-unrepresentable)).
+- **MUST** parse untrusted input into precise types once, at the boundary. Core functions accept only parsed types ([§5.2](#52-parse-dont-validate)).
+- **MUST NOT** swallow errors: no empty `catch`, and no `catch { log; return null }` for errors you don't understand ([§7.2](#72-rules)).
+- **MUST NOT** return stack traces, SQL or internal identifiers to clients ([§7.2](#72-rules)).
+- **MUST** let each module own its tables. No other module joins against them or writes to them ([§9](#9-module-boundaries)).
+- **MUST NOT** call external systems (payment provider, email) inside a database transaction. Call them after commit, or record the intent in the outbox ([§11.2](#112-transactions)).
+- **MUST** use database constraints as the final guard for invariants. An application-level check alone loses races ([§11.2](#112-transactions)).
+- **MUST** pass dependencies in explicitly, preferably through the constructor or as function parameters ([§12](#12-dependency-injection-and-configuration)).
+- **MUST** use a transactional outbox: write the event to an outbox table in the same transaction as the business change, and have a relay publish it ([§13.2](#132-delivery-at-least-once-plus-idempotent-consumers)).
+- **MUST** make every consumer idempotent with an inbox row (unique constraint) inserted in the same transaction as the consumer's writes ([§13.2](#132-delivery-at-least-once-plus-idempotent-consumers)).
+- **MUST** make every write endpoint that clients may retry idempotent, by natural design or with an idempotency key ([§15](#15-idempotency)).
+- **MUST** set a timeout on every remote call, covering both connect and total time ([§16.1](#161-timeouts-and-deadlines)).
+- **MUST** retry only operations that are idempotent or protected by an idempotency key ([§16.2](#162-retries)).
+- **MUST** follow the patterns already used in the module being changed. **MUST NOT** introduce a new architectural pattern, layer or library without an ADR ([§21](#21-working-with-ai-coding-agents)).
+
 ## Contents
 
 - [1. Core principles: when to use a pattern](#1-core-principles-when-to-use-a-pattern)

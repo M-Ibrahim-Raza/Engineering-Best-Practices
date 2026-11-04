@@ -22,6 +22,24 @@ Rules marked *(our rule)* are this repo's choice where no standard gives one ans
 
 ---
 
+## Key rules
+
+- **MUST** decide the kind of every new date or time field. **MUST NOT** turn one kind into another without the missing piece: a local date-time becomes an instant only with a time zone ([§1](#1-know-which-kind-of-time-you-have)).
+- **MUST** identify time zones with IANA IDs (`Europe/London`). **MUST NOT** store or accept abbreviations (`EST`, `IST`) as time zones, or store a raw offset (`+05:30`) where a time zone is needed ([§2](#2-time-zone-identifiers)).
+- **MUST** store past events and machine timestamps as UTC instants, and future events that happen at a place as local date-time + the IANA zone of that place ([§3](#3-what-to-store)).
+- **MUST** store date-only values as dates. **MUST NOT** store them as midnight UTC (`2026-12-24T00:00:00Z`) ([§3](#3-what-to-store)).
+- **MUST** use the database's instant type for instants (`timestamptz` in PostgreSQL). **MUST NOT** use a zoneless `timestamp` for them, including "UTC by convention" ([§4](#4-databases)).
+- **MUST** use half-open ranges `[start, end)` for every period and time-range query (`starts_at >= :from AND starts_at < :to`). **MUST NOT** use `BETWEEN` on timestamps ([§4](#4-databases), [§6](#6-calculations)).
+- **MUST** send instants as RFC 3339 strings with an offset (`2026-11-16T01:30:00Z`), and reject an instant that has no offset ([§5](#5-apis-and-data-formats)).
+- **MUST** do calendar math (add days or months) on a zoned date-time in the event's zone, and exact math (add 2 hours) on instants. **MUST NOT** add `86400` seconds to move by one day ([§6](#6-calculations)).
+- **MUST** pass the time zone explicitly to every conversion and formatting call. **MUST NOT** rely on the process's default zone ([§6](#6-calculations)).
+- **MUST** decide what happens in a DST gap or overlap at every place that turns a local time into an instant. **MUST NOT** rely on a library default you haven't checked ([§7](#7-dst-gaps-and-overlaps)).
+- **MUST** store a recurring event as a rule plus a local start date-time and an IANA zone, and expand it in that zone. **MUST NOT** store it as a UTC start plus "every 7 days" ([§8](#8-recurring-events-and-opening-hours)).
+- **MUST** schedule system jobs in UTC, set the zone explicitly on a job whose meaning is local, and make every scheduled job idempotent and safe to run late ([§9](#9-scheduled-jobs-and-reminders)).
+- **MUST** format dates and times with the platform's locale-aware formatter, passing the locale and zone explicitly, and label the zone whenever the viewer could be in a different zone from the event ([§10](#10-showing-times-to-people)).
+- **MUST** keep tzdata current in every layer that converts times. After each update, **MUST** recompute the derived instants of future events in the changed zones and reschedule reminders whose send time moved ([§11](#11-keep-tzdata-up-to-date)).
+- **MUST** inject the clock and freeze it in tests, and run the suite under at least two `TZ` values in CI, one of them far from UTC ([§14](#14-testing)).
+
 ## Contents
 
 0. [Why this matters in 2026](#0-why-this-matters-in-2026)

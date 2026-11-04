@@ -34,6 +34,24 @@ Notes on the examples:
 - Blocks marked `// ❌` show what not to do.
 - Every ✅ block was type-checked against zod 4.6.7 with the strict `tsconfig` from typescript.md under TypeScript 6.0.3 and 7.0.2, and the runtime behavior described in the rules was checked on Node.
 
+## Key rules
+
+- **MUST** parse data with a Zod schema where it crosses a trust boundary (request input, env vars, webhooks, third-party responses, LLM output), and **MUST NOT** cast untrusted data with `as` ([§2](#2-where-to-validate)).
+- **MUST** keep working with the value that parsing returns, not the original input ([§2](#2-where-to-validate)).
+- **MUST** use one schema per direction (create input, update input, response). **MUST NOT** reuse a database row or ORM type as an API schema ([§2](#2-where-to-validate)).
+- **MUST** derive types with `z.infer<typeof XSchema>`. **MUST NOT** hand-write a type that repeats a schema ([§4.1](#41-rules)).
+- **MUST** use `z.strictObject()` for request bodies and other structured input ([§7.1](#71-choosing-the-object-type)).
+- **MUST** put an upper bound (`.max()`) on every string that comes from outside ([§8.1](#81-strings-and-formats)).
+- **MUST** use `z.httpUrl()` (or a `protocol` pattern) for any URL you render as a link, redirect to or fetch. `z.url()` accepts `javascript:alert(1)` ([§8.1](#81-strings-and-formats)).
+- **MUST** use `z.stringbool()` for booleans that arrive as strings. **MUST NOT** use `z.coerce.boolean()`: it turns `"false"` into `true` ([§8.2](#82-numbers-booleans-and-coercion)).
+- **MUST** return a boolean from `.refine()`. **MUST NOT** throw inside it: thrown errors escape `safeParse()` ([§10.1](#101-refinements)).
+- **MUST NOT** use `.catch()` on input that matters for security, money or identity ([§10.3](#103-defaults-and-fallbacks)).
+- **MUST** use `safeParse()` instead of wrapping `parse()` in `try`/`catch` ([§12.1](#121-which-method-to-call)).
+- **MUST NOT** show `error.message` to users, log raw input, or turn on `reportInput: true` in production ([§12.2](#122-formatting-errors)).
+- **MUST** treat model output and tool-call arguments as untrusted input, and parse them with the same schema you sent ([§13.3](#133-llm-structured-output-and-tool-schemas)).
+- **MUST** parse environment variables once, at startup, in one `env.ts` (plain Node services and scripts). **MUST NOT** read `process.env.X` anywhere else ([§14](#14-environment-variables)).
+- **MUST** validate again on the server with the same schema. Client-side validation only improves the experience ([§15](#15-forms)).
+
 ---
 
 ## 0. Versions and upgrades

@@ -28,6 +28,24 @@ If this file and the Drizzle docs for the installed version disagree, the docs w
 
 ---
 
+## Key rules
+
+- **MUST** attach a `pool.on('error', ...)` listener; with none, an idle client dying in the background crashes the process ([§3](#3-drivers--connections)).
+- **MUST** export every table, enum, schema, view, role, policy and relations object from a file matched by the `schema` glob; `drizzle-kit` can't see one that isn't exported, and gives no warning ([§4](#4-schema-design)).
+- **MUST** set `withTimezone: true` on every `timestamp` column ([§4](#4-schema-design)).
+- **MUST** add an `index()` on every foreign-key column yourself; Postgres doesn't create one for you ([§5](#5-constraints--indexes)).
+- **MUST** guard filters built with `and(...)`: `and()` with no defined conditions returns `undefined`, and `.where(undefined)` emits no WHERE clause at all ([§7.2](#72-the-sql-like-builder)).
+- **MUST** guard `update()`/`delete()` calls against an accidentally empty `where`; without one they touch every row ([§8](#8-writing-data)).
+- **MUST** pass values through the `sql` tagged template, never string-concatenate them ([§9](#9-raw-sql--injection-safety)).
+- **MUST NOT** pass user input to `sql.raw()`, or to `db.execute()` as a plain template-literal string ([§9](#9-raw-sql--injection-safety)).
+- **MUST** use the callback's `tx`, never the outer `db`, for every query inside `db.transaction()`, and await every query on `tx` ([§10](#10-transactions)).
+- **MUST NOT** catch a database error inside a transaction callback and then let the callback return normally; the transaction's writes are lost with no error raised ([§10](#10-transactions)).
+- **MUST NOT** let a Drizzle row type cross an API or React Server Component boundary; map it to a DTO before it leaves the data-access layer ([§12](#12-types)).
+- **MUST** run `generate` then `migrate` in every normal workflow, and **MUST NOT** run `push` against a shared or production database ([§13.2](#132-commands)).
+- **MUST NOT** run the migrator at application boot ([§13.4](#134-applying-migrations-at-runtime)).
+- **MUST** review generated SQL for a `RENAME` or `DROP` before applying it ([§13.7](#137-custom-migrations-renames-and-zero-downtime)).
+- **MUST NOT** log bound query parameters in production ([§20](#20-logging--observability)).
+
 ## Table of contents
 
 - [Drizzle ORM Best Practices](#drizzle-orm-best-practices)
